@@ -17,7 +17,6 @@ import com.intellij.openapi.vcs.diff.DiffProvider
 import com.intellij.openapi.vcs.history.VcsHistoryProvider
 import com.intellij.openapi.vcs.rollback.RollbackEnvironment
 import com.intellij.openapi.vcs.update.UpdateEnvironment
-import com.intellij.openapi.vfs.VirtualFile
 import java.nio.file.Path
 
 class PlasticVcs(project: Project) : AbstractVcs(project, NAME) {
@@ -58,8 +57,6 @@ class PlasticVcs(project: Project) : AbstractVcs(project, NAME) {
      * push Git back to the modal commit dialog. Plastic check-ins themselves happen in the Plastic SCM tool window.
      */
     override fun getType(): VcsType = VcsType.distributed
-
-    override fun isVersionedDirectory(dir: VirtualFile): Boolean = PlasticRootChecker.findWorkspaceRoot(dir) != null
 
     companion object {
         const val NAME = "PlasticSCM"

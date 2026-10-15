@@ -100,6 +100,18 @@ object PlasticCli {
         }
     }
 
+    /** AI preparation must not load an unbounded historical file into memory. */
+    fun catLimited(root: Path, revisionSpec: String, maxBytes: Int): ByteArray {
+        require(maxBytes in 1..1024 * 1024) { "Invalid content limit." }
+        val tmp = FileUtil.createTempFile("riderplastic-ai", ".cat", true)
+        try {
+            run(root, listOf("cat", revisionSpec, "--file=${tmp.absolutePath}"), timeoutMs = 60_000)
+            return tmp.inputStream().use { BoundedContent.read(it, maxBytes) }
+        } finally {
+            FileUtil.delete(tmp)
+        }
+    }
+
     fun history(root: Path, file: Path): List<PlasticHistoryEntry> {
         val out = run(
             root,
