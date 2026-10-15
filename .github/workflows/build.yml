@@ -213,7 +213,7 @@ jobs:
   # If accepted and published, the release workflow would be triggered
   releaseDraft:
     name: Release draft
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push'
     needs: [ build, test, inspectCode, verify ]
     runs-on: ubuntu-latest
     permissions:
