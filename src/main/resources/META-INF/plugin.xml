@@ -25,7 +25,7 @@
         <toolWindow id="Plastic SCM"
                     anchor="left"
                     secondary="false"
-                    icon="/icons/plasticToolWindow.svg"
+                    icon="/icons/plasticLanes.svg"
                     factoryClass="com.github.donovanmontoya.riderplastic.toolwindow.PlasticToolWindowFactory"/>
 
         <notificationGroup id="Plastic SCM" displayType="BALLOON"/>

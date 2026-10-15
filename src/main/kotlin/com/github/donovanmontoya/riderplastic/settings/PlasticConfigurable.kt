@@ -1,6 +1,7 @@
 package com.github.donovanmontoya.riderplastic.settings
 
 import com.github.donovanmontoya.riderplastic.cli.PlasticCli
+import com.github.donovanmontoya.riderplastic.toolwindow.PlasticToolWindowFactory
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.BoundConfigurable
@@ -8,7 +9,9 @@ import com.intellij.openapi.ui.DialogPanel
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.util.io.FileUtil
+import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.dsl.builder.AlignX
+import com.intellij.ui.dsl.builder.bindItem
 import com.intellij.ui.dsl.builder.bindText
 import com.intellij.ui.dsl.builder.panel
 import java.nio.file.Path
@@ -30,7 +33,21 @@ class PlasticConfigurable : BoundConfigurable("Plastic SCM") {
                     .component
                 button("Test") { testExecutable(pathField.text) }
             }
+            row("Tool window icon:") {
+                comboBox(
+                    PlasticToolWindowIcon.entries,
+                    SimpleListCellRenderer.create<PlasticToolWindowIcon> { label, value, _ ->
+                        label.text = value?.displayName.orEmpty()
+                        label.icon = value?.icon
+                    },
+                ).bindItem({ settings.toolWindowIcon }, { settings.toolWindowIcon = it ?: PlasticToolWindowIcon.LANES })
+            }
         }
+    }
+
+    override fun apply() {
+        super.apply()
+        PlasticToolWindowFactory.applyIconToOpenProjects()
     }
 
     private fun testExecutable(path: String) {

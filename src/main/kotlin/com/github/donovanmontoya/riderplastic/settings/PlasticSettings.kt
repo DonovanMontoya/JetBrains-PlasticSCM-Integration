@@ -7,12 +7,27 @@ import com.intellij.openapi.components.SimplePersistentStateComponent
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.openapi.components.service
+import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.util.SystemInfo
 import java.io.File
+import javax.swing.Icon
 
 class PlasticSettingsState : BaseState() {
     /** Explicit path to the `cm` executable. Empty means auto-detect. */
     var cmExecutable by string("")
+
+    /** Name of a [PlasticToolWindowIcon] constant. */
+    var toolWindowIcon by string(PlasticToolWindowIcon.LANES.name)
+}
+
+/** Icon choices for the Plastic SCM tool window stripe button. */
+enum class PlasticToolWindowIcon(val displayName: String, private val path: String) {
+    LANES("Branch Explorer lanes", "/icons/plasticLanes.svg"),
+    CM("cm monogram", "/icons/plasticCm.svg"),
+    ;
+
+    /** `_dark.svg` variants are picked up automatically by the icon loader. */
+    val icon: Icon by lazy { IconLoader.getIcon(path, PlasticToolWindowIcon::class.java) }
 }
 
 @Service(Service.Level.APP)
@@ -23,6 +38,12 @@ class PlasticSettings : SimplePersistentStateComponent<PlasticSettingsState>(Pla
         get() = state.cmExecutable.orEmpty()
         set(value) {
             state.cmExecutable = value.trim()
+        }
+
+    var toolWindowIcon: PlasticToolWindowIcon
+        get() = PlasticToolWindowIcon.entries.firstOrNull { it.name == state.toolWindowIcon } ?: PlasticToolWindowIcon.LANES
+        set(value) {
+            state.toolWindowIcon = value.name
         }
 
     /** The executable that will actually be launched. */
