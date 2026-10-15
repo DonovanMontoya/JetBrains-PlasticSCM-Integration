@@ -22,6 +22,12 @@
                                 implementation="com.github.donovanmontoya.riderplastic.branch.PlasticBranchWidgetFactory"
                                 order="after codeStyleWidget,before readOnlyWidget"/>
 
+        <toolWindow id="Plastic SCM"
+                    anchor="left"
+                    secondary="false"
+                    icon="/icons/plasticToolWindow.svg"
+                    factoryClass="com.github.donovanmontoya.riderplastic.toolwindow.PlasticToolWindowFactory"/>
+
         <notificationGroup id="Plastic SCM" displayType="BALLOON"/>
     </extensions>
 

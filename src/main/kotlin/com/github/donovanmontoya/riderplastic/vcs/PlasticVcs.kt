@@ -4,12 +4,12 @@ import com.github.donovanmontoya.riderplastic.annotate.PlasticAnnotationProvider
 import com.github.donovanmontoya.riderplastic.history.PlasticHistoryProvider
 import com.github.donovanmontoya.riderplastic.settings.PlasticConfigurable
 import com.intellij.openapi.options.Configurable
-import com.intellij.openapi.options.advanced.AdvancedSettings
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vcs.AbstractVcs
 import com.intellij.openapi.vcs.FilePath
 import com.intellij.openapi.vcs.ProjectLevelVcsManager
 import com.intellij.openapi.vcs.VcsKey
+import com.intellij.openapi.vcs.VcsType
 import com.intellij.openapi.vcs.annotate.AnnotationProvider
 import com.intellij.openapi.vcs.changes.ChangeProvider
 import com.intellij.openapi.vcs.checkin.CheckinEnvironment
@@ -18,7 +18,6 @@ import com.intellij.openapi.vcs.history.VcsHistoryProvider
 import com.intellij.openapi.vcs.rollback.RollbackEnvironment
 import com.intellij.openapi.vcs.update.UpdateEnvironment
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.vcs.commit.CommitMode
 import java.nio.file.Path
 
 class PlasticVcs(project: Project) : AbstractVcs(project, NAME) {
@@ -54,12 +53,11 @@ class PlasticVcs(project: Project) : AbstractVcs(project, NAME) {
     override fun getConfigurable(): Configurable = PlasticConfigurable()
 
     /**
-     * The platform only docks the commit UI into the Commit tool window (like Git) for distributed VCSes;
-     * anything else gets the legacy modal "Commit Changes" dialog. Plastic works fine with the docked UI,
-     * so force it, while still honouring the user's "toggle commit UI" advanced setting.
+     * Plastic supports distributed workflows, and reporting it as such matters in mixed projects: the platform only
+     * keeps the docked Commit tool window when *every* active VCS is distributed, so a "centralized" Plastic would
+     * push Git back to the modal commit dialog. Plastic check-ins themselves happen in the Plastic SCM tool window.
      */
-    override fun getForcedCommitMode(): CommitMode =
-        CommitMode.NonModalCommitMode(AdvancedSettings.getBoolean("vcs.non.modal.commit.toggle.ui"))
+    override fun getType(): VcsType = VcsType.distributed
 
     override fun isVersionedDirectory(dir: VirtualFile): Boolean = PlasticRootChecker.findWorkspaceRoot(dir) != null
 

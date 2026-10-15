@@ -8,8 +8,11 @@
 RiderPlastic integrates **Plastic SCM / Unity Version Control** into JetBrains Rider (and other IntelliJ-based IDEs)
 as a first-class VCS, so it works through the same UI you use for Git:
 
-- **Commit tool window**: pending changes, private (unversioned) and ignored files from `cm status`
-- **Check in** with a comment; selecting unversioned files adds them (`cm add`) first
+- **Plastic SCM tool window**: a dedicated commit panel modelled on the Commit tool window (change tree with
+  checkboxes, unversioned files, diff/undo/refresh toolbar, comment box and **Check In** button). It only shows
+  Plastic items, so it sits next to Git's Commit tool window in projects that use both
+- **Check in** with a comment; checked unversioned files are added (`cm add`) first
+- Plastic changes also show up in the IDE's shared local-changes model (gutter markers, file colors)
 - **Rollback** (`cm undo`), **diff against the base revision**, gutter change markers
 - **Show History** for a file and compare revisions (`cm history` / `cm cat`)
 - **Annotate** / blame (`cm annotate`)

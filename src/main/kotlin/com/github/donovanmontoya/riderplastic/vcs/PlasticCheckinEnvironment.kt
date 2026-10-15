@@ -27,8 +27,23 @@ class PlasticCheckinEnvironment(private val project: Project) : CheckinEnvironme
         commitContext: CommitContext,
         feedback: MutableSet<in String>,
     ): List<VcsException> {
-        if (commitMessage.isBlank()) return listOf(VcsException("Plastic SCM requires a check-in comment"))
+        val errors = checkIn(changes, emptyList(), commitMessage)
+        if (errors.isEmpty()) feedback.add("Checked in ${changes.size} item(s) to Plastic SCM")
+        return errors
+    }
 
+    /**
+     * Checks in [changes] plus the private files in [unversioned] (which are `cm add`-ed first), grouped per workspace.
+     * Blocking; call from a background thread.
+     */
+    fun checkIn(changes: Collection<Change>, unversioned: Collection<FilePath>, comment: String): List<VcsException> {
+        if (comment.isBlank()) return listOf(VcsException("Plastic SCM requires a check-in comment"))
+
+        val toAdd = MultiMap.createLinkedSet<Path, Path>()
+        for (path in unversioned) {
+            val root = PlasticVcs.rootFor(project, path) ?: continue
+            toAdd.putValue(root, path.toNioPath())
+        }
         val byRoot = MultiMap.createLinkedSet<Path, Path>()
         for (change in changes) {
             // Moves need both ends so Plastic can check in the whole move.
@@ -37,12 +52,13 @@ class PlasticCheckinEnvironment(private val project: Project) : CheckinEnvironme
                 byRoot.putValue(root, path.toNioPath())
             }
         }
+        for ((root, paths) in toAdd.entrySet()) byRoot.putValues(root, paths)
 
         val errors = mutableListOf<VcsException>()
         for ((root, paths) in byRoot.entrySet()) {
             try {
-                PlasticCli.checkin(root, paths, commitMessage)
-                feedback.add("Checked in ${paths.size} item(s) to ${root.fileName ?: root}")
+                PlasticCli.add(root, toAdd.get(root))
+                PlasticCli.checkin(root, paths, comment)
             } catch (e: VcsException) {
                 errors += e
             }
