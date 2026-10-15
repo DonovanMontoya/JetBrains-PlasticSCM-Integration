@@ -1,11 +1,11 @@
-# RiderPlastic
+# Plastic SCM Integration
 
 ![Build](https://github.com/DonovanMontoya/RiderPlastic/workflows/Build/badge.svg)
 [![Version](https://img.shields.io/jetbrains/plugin/v/com.github.donovanmontoya.riderplastic.svg)](https://plugins.jetbrains.com/plugin/com.github.donovanmontoya.riderplastic)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/com.github.donovanmontoya.riderplastic.svg)](https://plugins.jetbrains.com/plugin/com.github.donovanmontoya.riderplastic)
 
 <!-- Plugin description -->
-RiderPlastic integrates **Plastic SCM / Unity Version Control** into JetBrains Rider (and other IntelliJ-based IDEs)
+Plastic SCM Integration integrates **Plastic SCM / Unity Version Control** into JetBrains Rider (and other IntelliJ-based IDEs)
 as a first-class VCS, so it works through the same UI you use for Git:
 
 - **Plastic SCM tool window**: a dedicated commit panel modelled on the Commit tool window (change tree with
@@ -46,7 +46,7 @@ machine-readable formats and parsed in `PlasticStatusParser` / `PlasticOutputPar
 
 - Using the IDE built-in plugin system:
 
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "RiderPlastic"</kbd> >
+  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "Plastic SCM Integration"</kbd> >
   <kbd>Install</kbd>
 
 - Using JetBrains Marketplace:

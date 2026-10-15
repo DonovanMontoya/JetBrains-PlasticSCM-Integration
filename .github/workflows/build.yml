@@ -19,6 +19,8 @@ on:
     branches: [ main ]
   # Trigger the workflow on any pull request
   pull_request:
+  # Allow running the workflow manually on any branch
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -71,7 +73,7 @@ jobs:
 
       # Store an already-built plugin as an artifact for downloading
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.artifact.outputs.filename }}
           path: ./build/distributions/content/*/*
@@ -114,7 +116,7 @@ jobs:
       # Collect Tests Result of failed tests
       - name: Collect Tests Result
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: tests-result
           path: ${{ github.workspace }}/build/reports/tests
@@ -160,7 +162,7 @@ jobs:
 
       # Run Qodana inspections
       - name: Qodana - Code Inspection
-        uses: JetBrains/qodana-action@v2025.2.2
+        uses: JetBrains/qodana-action@v2025.3.1
         with:
           cache-default-branch-only: true
 
@@ -202,7 +204,7 @@ jobs:
       # Collect Plugin Verifier Result
       - name: Collect Plugin Verifier Result
         if: ${{ always() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: pluginVerifier-result
           path: ${{ github.workspace }}/build/reports/pluginVerifier
@@ -211,7 +213,7 @@ jobs:
   # If accepted and published, the release workflow would be triggered
   releaseDraft:
     name: Release draft
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push'
     needs: [ build, test, inspectCode, verify ]
     runs-on: ubuntu-latest
     permissions:

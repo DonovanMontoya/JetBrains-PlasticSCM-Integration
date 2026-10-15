@@ -52,7 +52,7 @@ class PlasticRollbackEnvironment(private val project: Project) : RollbackEnviron
         val byRoot = LinkedHashMap<Path, MutableList<Path>>()
         for (path in paths) {
             val root = PlasticVcs.rootFor(project, path) ?: continue
-            byRoot.getOrPut(root) { mutableListOf() } += path.toNioPath()
+            byRoot.getOrPut(root) { mutableListOf() }.add(path.toNioPath())
         }
         for ((root, rootPaths) in byRoot) {
             try {

@@ -1,6 +1,6 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
-# RiderPlastic Changelog
+# Plastic SCM Integration Changelog
 
 ## [Unreleased]
 ### Added
@@ -9,3 +9,7 @@
 - Status bar branch widget and Switch Branch / New Branch actions
 - Settings page for the `cm` executable path
 - Dedicated "Plastic SCM" tool window for checking in, usable alongside Git's Commit tool window
+
+### Changed
+- Rename the plugin to "Plastic SCM Integration", as JetBrains Marketplace does not allow product names such as "Rider" in plugin names
+- Update Gradle wrapper, Kotlin, Kover, Qodana, IntelliJ Platform Gradle Plugin and GitHub Actions dependencies
