@@ -1,62 +1,83 @@
-# GitHub Actions Workflow created for handling the release process based on the draft release prepared with the Build workflow.
-# Running the publishPlugin task requires all the following secrets to be provided: PUBLISH_TOKEN, PRIVATE_KEY, PRIVATE_KEY_PASSWORD, CERTIFICATE_CHAIN.
-# See https://plugins.jetbrains.com/docs/intellij/plugin-signing.html for more information.
+# Marketplace publication is deliberately separate from GitHub releases.
+# Requires the existing PUBLISH_TOKEN, PRIVATE_KEY, PRIVATE_KEY_PASSWORD, and
+# CERTIFICATE_CHAIN secrets. No GitHub release event starts this workflow.
 
-name: Release
+name: Publish to JetBrains Marketplace
 on:
-  release:
-    types: [prereleased, released]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable GitHub release tag to publish (for example, v1.0.1)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: marketplace-${{ inputs.tag }}
+  cancel-in-progress: false
 
 jobs:
-
-  # Prepare and publish the plugin to JetBrains Marketplace repository
-  release:
+  publish:
     name: Publish Plugin
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     steps:
+      - name: Validate Stable Release
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Choose a stable vMAJOR.MINOR.PATCH release tag." >&2
+            exit 1
+          fi
+          gh release view "$RELEASE_TAG" --json isDraft,isPrerelease \
+            --jq 'if .isDraft or .isPrerelease then error("A published stable release is required") else . end' > /dev/null
+          echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
 
-      # Free GitHub Actions Environment Disk Space
       - name: Maximize Build Space
         uses: jlumbroso/free-disk-space@v1.3.1
         with:
           tool-cache: false
           large-packages: false
 
-      # Check out the current repository
-      - name: Fetch Sources
+      - name: Fetch Release Sources
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: refs/tags/${{ inputs.tag }}
 
-      # Set up the Java environment for the next steps
+      - name: Check Plugin Version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -nE 's/^pluginVersion[[:space:]]*=[[:space:]]*([^[:space:]]+)[[:space:]]*$/\1/p' gradle.properties)
+          if [[ "$VERSION" != "$RELEASE_VERSION" ]]; then
+            echo "The release tag and gradle.properties pluginVersion must match." >&2
+            exit 1
+          fi
+
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
           distribution: zulu
           java-version: 21
 
-      # Setup Gradle
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
         with:
           cache-read-only: true
 
-      # Update the Unreleased section with the current release note
-      - name: Patch Changelog
-        if: ${{ github.event.release.body != '' }}
-        env:
-          CHANGELOG: ${{ github.event.release.body }}
-        run: |
-          RELEASE_NOTE="./build/tmp/release_note.txt"
-          mkdir -p "$(dirname "$RELEASE_NOTE")"
-          echo "$CHANGELOG" > $RELEASE_NOTE
+      - name: Test and Verify Plugin
+        run: ./gradlew check verifyPlugin
 
-          ./gradlew patchChangelog --release-note-file=$RELEASE_NOTE
-
-      # Publish the plugin to JetBrains Marketplace
       - name: Publish Plugin
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
@@ -64,37 +85,3 @@ jobs:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
         run: ./gradlew publishPlugin
-
-      # Upload an artifact as a release asset
-      - name: Upload Release Asset
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload ${{ github.event.release.tag_name }} ./build/distributions/*
-
-      # Create a pull request
-      - name: Create Pull Request
-        if: ${{ github.event.release.body != '' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERSION="${{ github.event.release.tag_name }}"
-          BRANCH="changelog-update-$VERSION"
-          LABEL="release changelog"
-
-          git config user.email "action@github.com"
-          git config user.name "GitHub Action"
-
-          git checkout -b $BRANCH
-          git commit -am "Changelog update - $VERSION"
-          git push --set-upstream origin $BRANCH
-
-          gh label create "$LABEL" \
-            --description "Pull requests with release changelog update" \
-            --force \
-            || true
-
-          gh pr create \
-            --title "Changelog update - \`$VERSION\`" \
-            --body "Current pull request contains patched \`CHANGELOG.md\` file for the \`$VERSION\` version." \
-            --label "$LABEL" \
-            --head $BRANCH
