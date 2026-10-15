@@ -48,6 +48,8 @@ Generation never starts automatically and never checks files in. Review the gene
   only an endpoint you actually run on this computer is local. HTTPS is required except for exact loopback hosts.
 - Binary files, symbolic links, obvious credential files, and oversized selections are rejected without a request.
   Filename checks cannot guarantee that ordinary source files contain no secrets; review what you check.
+- Files read from disk and historical revisions must be UTF-8 text. Historical content is retrieved through a
+  temporary `cm cat` file before its bounded read, so it may use temporary disk space even when rejected.
 - Cancel stops pending work. A late response cannot replace a message you edited or a different checked selection.
 - Keys belong only to this plugin and provider/endpoint; they are never imported from another plugin or saved
   in project/XML settings or logs. They use the IDE PasswordSafe subject to its configured storage policy.
@@ -56,10 +58,12 @@ Generation never starts automatically and never checks files in. Review the gene
   normal PasswordSafe storage. Empty key input does not erase an existing key; use the explicit remove control.
 - Provider redirects and automatic request retries are disabled. A missing key, timeout, rate limit, invalid model,
   or malformed response leaves your existing comment intact. Retry manually when appropriate.
+- Generation is blocked when JVM HTTP diagnostics, automatic POST retries, or disabled TLS hostname verification
+  could weaken these protections. Remove the indicated JVM overrides and restart the IDE before trying again.
 
 ## Development
 
-- `./gradlew test` runs the unit tests for the `cm` output parsers.
+- `./gradlew test` runs parser, AI protocol, selected-diff, credential-scope, and generation-safety tests using synthetic data.
 - `./gradlew buildPlugin` produces the installable zip in `build/distributions`.
 - `./gradlew runIde` starts a sandbox IDE with the plugin. The build compiles against the IntelliJ Platform
   (`platformVersion` in `gradle.properties`); the plugin only uses platform VCS APIs, so the same zip installs in Rider.

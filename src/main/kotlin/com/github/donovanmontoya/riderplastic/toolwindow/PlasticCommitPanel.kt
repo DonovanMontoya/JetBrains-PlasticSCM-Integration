@@ -11,6 +11,7 @@ import com.github.donovanmontoya.riderplastic.settings.PlasticConfigurable
 import com.github.donovanmontoya.riderplastic.settings.PlasticSettings
 import com.github.donovanmontoya.riderplastic.branch.PlasticBranchOperations
 import com.github.donovanmontoya.riderplastic.cli.PlasticCli
+import com.github.donovanmontoya.riderplastic.cli.BoundedContent
 import com.github.donovanmontoya.riderplastic.vcs.PlasticCheckinEnvironment
 import com.github.donovanmontoya.riderplastic.vcs.PlasticContentRevision
 import com.github.donovanmontoya.riderplastic.vcs.PlasticVcs
@@ -468,8 +469,11 @@ class PlasticCommitPanel(private val project: Project) : JPanel(BorderLayout()),
             }
         }
         return documentText ?: Files.newInputStream(path.ioFile.toPath()).use { stream ->
-            val bytes = stream.readNBytes(CommitPromptBuilder.MAX_REVISION_BYTES + 1)
-            requireAiInput(bytes.size <= CommitPromptBuilder.MAX_REVISION_BYTES) { "A checked file is too large for AI generation." }
+            val bytes = try {
+                BoundedContent.read(stream, CommitPromptBuilder.MAX_REVISION_BYTES)
+            } catch (_: IllegalArgumentException) {
+                throw AiClientException("A checked file is too large for AI generation.")
+            }
             Charsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(bytes)).toString()
         }
     }
