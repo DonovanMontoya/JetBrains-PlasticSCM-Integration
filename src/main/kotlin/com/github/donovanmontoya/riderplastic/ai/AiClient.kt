@@ -90,7 +90,7 @@ class AiClient internal constructor(
         }
     }
 
-    internal fun buildRequest(config: AiRequestConfig, apiKey: String?, diff: String): HttpRequest {
+    private fun buildRequest(config: AiRequestConfig, apiKey: String?, diff: String): HttpRequest {
         val validated = validateConfig(config)
         if (diff.isBlank()) throw AiClientException("Select text changes before generating a commit message.")
         if (diff.length > MAX_DIFF_BYTES || diff.toByteArray(UTF_8).size > MAX_DIFF_BYTES) {
@@ -319,7 +319,7 @@ internal class AiProtocolHttpTransport : AiProtocolTransport {
 
     override fun send(request: HttpRequest): CompletableFuture<HttpResponse<ByteArray>> {
         val client = if (AiClient.isLoopbackHost(request.uri().host)) loopbackClient else remoteClient
-        return client.sendAsync(request, HttpResponse.BodyHandler { AiProtocolLimitedBodySubscriber(AiClient.MAX_RESPONSE_BYTES) })
+        return client.sendAsync(request) { AiProtocolLimitedBodySubscriber(AiClient.MAX_RESPONSE_BYTES) }
     }
 
     private fun client(direct: Boolean): HttpClient = HttpClient.newBuilder()

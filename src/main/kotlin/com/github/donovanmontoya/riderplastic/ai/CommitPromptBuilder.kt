@@ -18,9 +18,9 @@ object CommitPromptBuilder {
     const val MAX_PATH_BYTES = 1_024
     const val MAX_REVISION_BYTES = 32 * 1_024
     const val MAX_FILE_BYTES = 2 * MAX_REVISION_BYTES
-    const val MAX_TOTAL_INPUT_BYTES = 128 * 1_024
-    const val MAX_PROMPT_BYTES = 200 * 1_024
-    const val CONTEXT_LINES = 3
+    private const val MAX_TOTAL_INPUT_BYTES = 128 * 1_024
+    private const val MAX_PROMPT_BYTES = 200 * 1_024
+    private const val CONTEXT_LINES = 3
 
     private const val RENAME_SEPARATOR = " -> "
     private val privateKeyHeader = Regex("-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----")
