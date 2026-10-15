@@ -1,11 +1,11 @@
-# RiderPlastic
+# Plastic SCM Integration
 
 ![Build](https://github.com/DonovanMontoya/RiderPlastic/workflows/Build/badge.svg)
 [![Version](https://img.shields.io/jetbrains/plugin/v/com.github.donovanmontoya.riderplastic.svg)](https://plugins.jetbrains.com/plugin/com.github.donovanmontoya.riderplastic)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/com.github.donovanmontoya.riderplastic.svg)](https://plugins.jetbrains.com/plugin/com.github.donovanmontoya.riderplastic)
 
 <!-- Plugin description -->
-RiderPlastic brings Plastic SCM workflows directly into JetBrains Rider. The plugin aims to streamline everyday source control actions including:
+Plastic SCM Integration brings Plastic SCM workflows directly into JetBrains Rider. The plugin aims to streamline everyday source control actions including:
 
 - Cloning or connecting to Plastic SCM repositories
 - Viewing workspace status and pending changes
@@ -22,7 +22,7 @@ Installation is available via the JetBrains Marketplace or manual package downlo
 
 - Using the IDE built-in plugin system:
 
-  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "RiderPlastic"</kbd> >
+  <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>Marketplace</kbd> > <kbd>Search for "Plastic SCM Integration"</kbd> >
   <kbd>Install</kbd>
 
 - Using JetBrains Marketplace:
