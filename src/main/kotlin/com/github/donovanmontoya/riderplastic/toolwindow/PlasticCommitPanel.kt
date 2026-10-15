@@ -15,6 +15,8 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.DataProvider
+import com.intellij.openapi.actionSystem.DataSink
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -25,22 +27,29 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vcs.FilePath
+import com.intellij.openapi.vcs.VcsDataKeys
 import com.intellij.openapi.vcs.VcsException
 import com.intellij.openapi.vcs.changes.Change
 import com.intellij.openapi.vcs.changes.ChangeListListener
 import com.intellij.openapi.vcs.changes.ChangeListManager
 import com.intellij.openapi.vcs.changes.ChangesUtil
+import com.intellij.openapi.vcs.changes.InclusionListener
 import com.intellij.openapi.vcs.changes.VcsDirtyScopeManager
 import com.intellij.openapi.vcs.changes.actions.diff.ShowDiffAction
 import com.intellij.openapi.vcs.changes.ui.RollbackChangesDialog
 import com.intellij.openapi.vcs.ui.CommitMessage
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
+import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.OnePixelSplitter
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
+import com.intellij.vcs.commit.CommitChecksResult
+import com.intellij.vcs.commit.CommitExecutorListener
+import com.intellij.vcs.commit.CommitMessageUi
+import com.intellij.vcs.commit.CommitWorkflowUi
 import java.awt.BorderLayout
 import java.awt.FlowLayout
 import javax.swing.Icon
@@ -50,11 +59,16 @@ import javax.swing.JPanel
 /**
  * Content of the "Plastic SCM" tool window: a Commit-tool-window look-alike that only shows Plastic items,
  * so it can live next to Git's Commit tool window in mixed Git + Plastic projects.
+ *
+ * It implements the platform's [CommitWorkflowUi] and exposes it as [VcsDataKeys.COMMIT_WORKFLOW_UI], the same
+ * contract the built-in Commit tool window offers. Actions that plugins add to the commit message toolbar
+ * (`Vcs.MessageActionGroup`), such as JetBrains AI Assistant's "Generate Commit Message", read the included changes
+ * and write the message through it, so they can work here too, using the IDE user's own AI subscription.
  */
-class PlasticCommitPanel(private val project: Project) : JPanel(BorderLayout()), Disposable {
+class PlasticCommitPanel(private val project: Project) : JPanel(BorderLayout()), CommitWorkflowUi {
 
     private val tree = PlasticChangesTree(project)
-    private val commitMessage = CommitMessage(project, false, false, true, "Check-in comment")
+    private val commitMessage = CommitMessage(project, false, true, true, "Check-in comment")
     private val branchLabel = JBLabel().apply { foreground = UIUtil.getContextHelpForeground() }
     private val checkInButton = JButton("Check In")
 
@@ -233,6 +247,54 @@ class PlasticCommitPanel(private val project: Project) : JPanel(BorderLayout()),
     }
 
     override fun dispose() {}
+
+    // ---------------------------------------------------------------- CommitWorkflowUi
+
+    override fun uiDataSnapshot(sink: DataSink) {
+        sink.set(VcsDataKeys.COMMIT_WORKFLOW_UI, this)
+        sink.set(VcsDataKeys.COMMIT_MESSAGE_CONTROL, commitMessage)
+        sink.set(VcsDataKeys.COMMIT_MESSAGE_DOCUMENT, commitMessage.editorField.document)
+    }
+
+    override val commitMessageUi: CommitMessageUi get() = commitMessage
+
+    override var defaultCommitActionName: String
+        get() = checkInButton.text
+        set(value) {
+            checkInButton.text = value
+        }
+
+    override fun activate(): Boolean {
+        val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(PlasticToolWindowFactory.ID) ?: return false
+        toolWindow.activate { commitMessage.focus() }
+        return true
+    }
+
+    @Deprecated("Use UiDataRule instead")
+    override fun addDataProvider(provider: DataProvider) {
+        // Legacy hook; nothing in this panel consumes extra data providers.
+    }
+
+    override fun addExecutorListener(listener: CommitExecutorListener, parent: Disposable) {
+        // Plastic check-ins have no alternative commit executors.
+    }
+
+    override fun getDisplayedChanges(): List<Change> = tree.changes
+
+    override fun getIncludedChanges(): List<Change> = tree.includedChanges
+
+    override fun getDisplayedUnversionedFiles(): List<FilePath> = tree.unversioned
+
+    override fun getIncludedUnversionedFiles(): List<FilePath> = tree.includedUnversioned
+
+    override fun addInclusionListener(listener: InclusionListener, parent: Disposable) {
+        tree.inclusionModel.addInclusionListener(listener)
+        Disposer.register(parent) { tree.inclusionModel.removeInclusionListener(listener) }
+    }
+
+    override fun startBeforeCommitChecks() {}
+
+    override fun endBeforeCommitChecks(result: CommitChecksResult) {}
 
     private fun action(
         text: String,

@@ -10,7 +10,8 @@ as a first-class VCS, so it works through the same UI you use for Git:
 
 - **Plastic SCM tool window**: a dedicated commit panel modelled on the Commit tool window (change tree with
   checkboxes, unversioned files, diff/undo/refresh toolbar, comment box and **Check In** button). It only shows
-  Plastic items, so it sits next to Git's Commit tool window in projects that use both
+  Plastic items, so it sits next to Git's Commit tool window in projects that use both. The comment box carries the
+  standard commit-message toolbar, so add-ons such as JetBrains AI Assistant's *Generate Commit Message* appear there
 - **Check in** with a comment; checked unversioned files are added (`cm add`) first
 - Plastic changes also show up in the IDE's shared local-changes model (gutter markers, file colors)
 - **Rollback** (`cm undo`), **diff against the base revision**, gutter change markers
