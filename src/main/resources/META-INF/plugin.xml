@@ -14,6 +14,9 @@
              administrativeAreaName=".plastic"/>
         <vcsRootChecker implementation="com.github.donovanmontoya.riderplastic.vcs.PlasticRootChecker"/>
 
+        <applicationConfigurable parentId="vcs" id="PlasticSCMIntegration.Settings"
+                                 displayName="Plastic SCM"
+                                 instance="com.github.donovanmontoya.riderplastic.settings.PlasticConfigurable"/>
         <applicationService serviceImplementation="com.github.donovanmontoya.riderplastic.settings.PlasticSettings"/>
         <projectService serviceImplementation="com.github.donovanmontoya.riderplastic.vcs.PlasticWorkspaceState"/>
 

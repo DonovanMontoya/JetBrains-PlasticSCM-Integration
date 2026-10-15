@@ -1,5 +1,8 @@
 package com.github.donovanmontoya.riderplastic.settings
 
+import com.github.donovanmontoya.riderplastic.ai.AiClient
+import com.github.donovanmontoya.riderplastic.ai.AiProvider
+import com.github.donovanmontoya.riderplastic.ai.AiRequestConfig
 import com.intellij.execution.configurations.PathEnvironmentVariableUtil
 import com.intellij.openapi.components.BaseState
 import com.intellij.openapi.components.Service
@@ -18,6 +21,28 @@ class PlasticSettingsState : BaseState() {
 
     /** Name of a [PlasticToolWindowIcon] constant. */
     var toolWindowIcon by string(PlasticToolWindowIcon.LANES.name)
+
+    // Non-secret metadata only. API keys belong exclusively in AiCredentials/PasswordSafe.
+    var aiProvider by string(AiProvider.OPENAI.name)
+    var openAiModel by string("")
+    var anthropicModel by string("")
+    var localModel by string("")
+    var localBaseUrl by string(AiClient.DEFAULT_LOCAL_BASE_URL)
+}
+
+/** A non-secret snapshot. Switching providers preserves each provider's model. */
+data class PlasticAiSettings(
+    val provider: AiProvider = AiProvider.OPENAI,
+    val openAiModel: String = "",
+    val anthropicModel: String = "",
+    val localModel: String = "",
+    val localBaseUrl: String = AiClient.DEFAULT_LOCAL_BASE_URL,
+) {
+    fun requestConfig(): AiRequestConfig = when (provider) {
+        AiProvider.OPENAI -> AiRequestConfig(provider, openAiModel.trim(), AiClient.OPENAI_BASE_URL)
+        AiProvider.ANTHROPIC -> AiRequestConfig(provider, anthropicModel.trim(), AiClient.ANTHROPIC_BASE_URL)
+        AiProvider.LOCAL -> AiRequestConfig(provider, localModel.trim(), localBaseUrl.trim())
+    }
 }
 
 /** Icon choices for the Plastic SCM tool window stripe button. */
@@ -45,6 +70,29 @@ class PlasticSettings : SimplePersistentStateComponent<PlasticSettingsState>(Pla
         set(value) {
             state.toolWindowIcon = value.name
         }
+
+    @get:Synchronized
+    @set:Synchronized
+    var aiSettings: PlasticAiSettings
+        get() = PlasticAiSettings(
+            provider = AiProvider.entries.firstOrNull { it.name == state.aiProvider } ?: AiProvider.OPENAI,
+            openAiModel = state.openAiModel.orEmpty(),
+            anthropicModel = state.anthropicModel.orEmpty(),
+            localModel = state.localModel.orEmpty(),
+            localBaseUrl = state.localBaseUrl.orEmpty().ifBlank { AiClient.DEFAULT_LOCAL_BASE_URL },
+        )
+        set(value) {
+            // Validate before any mutation so a URL containing a key cannot reach riderPlastic.xml.
+            val localUrl = AiClient.normalizeBaseUrl(AiProvider.LOCAL, value.localBaseUrl)
+            state.aiProvider = value.provider.name
+            state.openAiModel = value.openAiModel.trim()
+            state.anthropicModel = value.anthropicModel.trim()
+            state.localModel = value.localModel.trim()
+            state.localBaseUrl = localUrl
+        }
+
+    /** Immutable snapshot for background generation. No credential is stored in settings. */
+    fun aiConfig(): AiRequestConfig = aiSettings.requestConfig()
 
     /** The executable that will actually be launched. */
     fun resolveCmExecutable(): String = cmExecutable.ifBlank { detectCmExecutable() ?: "cm" }
