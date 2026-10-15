@@ -1,8 +1,8 @@
 # Plastic SCM Integration
 
-![Build](https://github.com/DonovanMontoya/RiderPlastic/workflows/Build/badge.svg)
-[![Version](https://img.shields.io/jetbrains/plugin/v/com.github.donovanmontoya.riderplastic.svg)](https://plugins.jetbrains.com/plugin/com.github.donovanmontoya.riderplastic)
-[![Downloads](https://img.shields.io/jetbrains/plugin/d/com.github.donovanmontoya.riderplastic.svg)](https://plugins.jetbrains.com/plugin/com.github.donovanmontoya.riderplastic)
+![Build](https://github.com/DonovanMontoya/JetBrains-PlasticSCM-Integration/workflows/Build/badge.svg)
+[![Version](https://img.shields.io/jetbrains/plugin/v/com.donovanmontoya.jetbrains-plasticscm-integration.svg)](https://plugins.jetbrains.com/plugin/com.donovanmontoya.jetbrains-plasticscm-integration)
+[![Downloads](https://img.shields.io/jetbrains/plugin/d/com.donovanmontoya.jetbrains-plasticscm-integration.svg)](https://plugins.jetbrains.com/plugin/com.donovanmontoya.jetbrains-plasticscm-integration)
 
 <!-- Plugin description -->
 Plastic SCM Integration integrates **Plastic SCM / Unity Version Control** into JetBrains Rider (and other IntelliJ-based IDEs)
@@ -51,14 +51,14 @@ machine-readable formats and parsed in `PlasticStatusParser` / `PlasticOutputPar
 
 - Using JetBrains Marketplace:
 
-  Go to [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/com.github.donovanmontoya.riderplastic) and install it by clicking the <kbd>Install to ...</kbd> button in case your IDE is running.
+  Go to [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/com.donovanmontoya.jetbrains-plasticscm-integration) and install it by clicking the <kbd>Install to ...</kbd> button in case your IDE is running.
 
-  You can also download the [latest release](https://plugins.jetbrains.com/plugin/com.github.donovanmontoya.riderplastic/versions) from JetBrains Marketplace and install it manually using
+  You can also download the [latest release](https://plugins.jetbrains.com/plugin/com.donovanmontoya.jetbrains-plasticscm-integration/versions) from JetBrains Marketplace and install it manually using
   <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
 
 - Manually:
 
-  Download the [latest release](https://github.com/DonovanMontoya/RiderPlastic/releases/latest) and install it manually using
+  Download the [latest release](https://github.com/DonovanMontoya/JetBrains-PlasticSCM-Integration/releases/latest) and install it manually using
   <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>
 
 ---
