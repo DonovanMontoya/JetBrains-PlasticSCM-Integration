@@ -37,6 +37,15 @@ class PlasticContentRevision(
 
     override fun getContent(): String? = ContentRevisionCache.getAsString(contentAsBytes, filePath, null)
 
+    /** Separate bounded path for AI; ordinary diff/history reads retain their existing behavior. */
+    fun getContentAsBytesLimited(maxBytes: Int): ByteArray {
+        bytes?.let {
+            require(it.size <= maxBytes) { "A selected base revision exceeds the AI size limit." }
+            return it
+        }
+        return PlasticCli.catLimited(root, spec, maxBytes)
+    }
+
     override fun getFile(): FilePath = filePath
 
     override fun getRevisionNumber(): VcsRevisionNumber = revision
