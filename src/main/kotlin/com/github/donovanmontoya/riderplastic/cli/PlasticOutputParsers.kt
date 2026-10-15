@@ -86,6 +86,15 @@ object PlasticOutputParsers {
         }
     }
 
+    /**
+     * Extracts the loaded changeset from the first line of `cm status --header`,
+     * e.g. `cs:263@myrepo@myserver (head)` -> 263.
+     */
+    fun parseHeaderChangeset(output: String): Long? {
+        val line = output.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() } ?: return null
+        return Regex("""\bcs:(\d+)""").find(line)?.groupValues?.get(1)?.toLongOrNull()
+    }
+
     /** Parses `cm find branch --format={name} --nototal` output. */
     fun parseBranches(output: String): List<String> =
         output.lineSequence().map { it.trim() }.filter { it.startsWith("/") }.distinct().sorted().toList()

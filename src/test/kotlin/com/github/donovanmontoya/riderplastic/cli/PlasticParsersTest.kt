@@ -84,6 +84,13 @@ class PlasticParsersTest {
     }
 
     @Test
+    fun `loaded changeset is read from status header`() {
+        assertEquals(263L, PlasticOutputParsers.parseHeaderChangeset("cs:263@MyRepo@cloud (head)\nCH foo.cs"))
+        assertEquals(12L, PlasticOutputParsers.parseHeaderChangeset("\r\ncs:12@rep@localhost:8087\r\n"))
+        assertNull(PlasticOutputParsers.parseHeaderChangeset("Branch /main@rep@server"))
+    }
+
+    @Test
     fun `branches are filtered and sorted`() {
         assertEquals(
             listOf("/main", "/main/task1"),

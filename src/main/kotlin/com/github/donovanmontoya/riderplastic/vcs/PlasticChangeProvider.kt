@@ -3,6 +3,7 @@ package com.github.donovanmontoya.riderplastic.vcs
 import com.github.donovanmontoya.riderplastic.cli.PlasticChangeType
 import com.github.donovanmontoya.riderplastic.cli.PlasticCli
 import com.github.donovanmontoya.riderplastic.cli.PlasticStatusEntry
+import com.github.donovanmontoya.riderplastic.history.PlasticFileRevision
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vcs.FilePath
@@ -63,15 +64,22 @@ class PlasticChangeProvider(private val project: Project) : ChangeProvider {
         val current = CurrentContentRevision.create(path)
         return when (entry.type) {
             PlasticChangeType.ADDED -> Change(null, current)
-            PlasticChangeType.DELETED -> Change(PlasticContentRevision(root, path, base, path.path), null)
+            PlasticChangeType.DELETED -> Change(PlasticContentRevision(root, path, base, baseSpec(path, base)), null)
             PlasticChangeType.MOVED -> {
                 val before = filePath(entry.oldPath ?: entry.path, entry.isDirectory)
-                // The item keeps its identity across the move, so the new path resolves to the loaded revision.
-                Change(PlasticContentRevision(root, before, base, path.path), current)
+                Change(PlasticContentRevision(root, before, base, baseSpec(before, base)), current)
             }
-            else -> Change(PlasticContentRevision(root, path, base, path.path), current)
+            else -> Change(PlasticContentRevision(root, path, base, baseSpec(path, base)), current)
         }
     }
+
+    /**
+     * `cm cat` spec for the base (loaded) revision: `<path>#cs:<loaded changeset>`. Pinning the changeset matters:
+     * everything that reads the "before" side (the diff viewer, gutter markers, AI commit message generation)
+     * gets exactly the content the local edits started from.
+     */
+    private fun baseSpec(path: FilePath, base: VcsRevisionNumber): String =
+        (base as? PlasticRevisionNumber)?.let { PlasticFileRevision.specAtChangeset(path, it.changeset) } ?: path.path
 
     override fun isModifiedDocumentTrackingRequired(): Boolean = false
 

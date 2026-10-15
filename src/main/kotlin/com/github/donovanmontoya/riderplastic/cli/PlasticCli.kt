@@ -77,7 +77,10 @@ object PlasticCli {
                 "--fieldseparator=${PlasticStatusParser.FIELD_SEPARATOR}",
             ),
         )
-        return PlasticStatusParser.parse(out, root)
+        val status = PlasticStatusParser.parse(out, root)
+        if (status.changeset != null) return status
+        // The machine-readable header has varied between cm versions; `--header` reliably starts with `cs:N@...`.
+        return status.copy(changeset = PlasticOutputParsers.parseHeaderChangeset(run(root, "status", "--header")))
     }
 
     /** Returns the branch (or `cs:N` / `lb:name`) the workspace currently points at. */
