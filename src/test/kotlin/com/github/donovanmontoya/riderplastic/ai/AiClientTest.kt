@@ -310,6 +310,83 @@ class AiClientTest {
     }
 
     @Test
+    fun `unsafe JVM HTTP logging and POST retry flags prevent transport invocation`() {
+        val flags = mapOf(
+            "jdk.httpclient.enableAllMethodRetry" to listOf("true", "TRUE"),
+            "jdk.httpclient.HttpClient.log" to listOf("headers", "content", "all", "errors,requests", "PRIVATE FLAG $key"),
+        )
+        flags.forEach { (property, values) ->
+            val previous = System.getProperty(property)
+            try {
+                values.forEach { value ->
+                    System.setProperty(property, value)
+                    val transport = RecordingTransport { response(it, success) }
+                    val exception = expectFailure { client(transport).generate(openAi, key, diff) {} }
+                    assertEquals(
+                        "AI generation is disabled by unsafe HTTP runtime settings. " +
+                            "Remove the jdk.httpclient.HttpClient.log, jdk.httpclient.enableAllMethodRetry, and " +
+                            "jdk.internal.httpclient.disableHostnameVerification JVM flags, then restart the IDE.",
+                        exception.message,
+                    )
+                    assertTrue(transport.requests.isEmpty())
+                    assertFalse(exception.toString().contains(key))
+                    assertNull(exception.cause)
+                    assertEquals(value, System.getProperty(property))
+                }
+            } finally {
+                if (previous == null) System.clearProperty(property) else System.setProperty(property, previous)
+            }
+        }
+    }
+
+    @Test
+    fun `disabled JVM HTTP overrides permit mocked request without changing properties`() {
+        val retryProperty = "jdk.httpclient.enableAllMethodRetry"
+        val loggingProperty = "jdk.httpclient.HttpClient.log"
+        val previousRetry = System.getProperty(retryProperty)
+        val previousLogging = System.getProperty(loggingProperty)
+        try {
+            System.setProperty(retryProperty, "false")
+            for (logging in listOf("", "none")) {
+                System.setProperty(loggingProperty, logging)
+                val transport = RecordingTransport { response(it, success) }
+                assertEquals("Update test text", client(transport).generate(openAi, key, diff) {})
+                assertEquals(1, transport.requests.size)
+                assertEquals("false", System.getProperty(retryProperty))
+                assertEquals(logging, System.getProperty(loggingProperty))
+            }
+        } finally {
+            if (previousRetry == null) System.clearProperty(retryProperty) else System.setProperty(retryProperty, previousRetry)
+            if (previousLogging == null) System.clearProperty(loggingProperty) else System.setProperty(loggingProperty, previousLogging)
+        }
+    }
+
+    @Test
+    fun `disabled TLS hostname verification prevents transport invocation`() {
+        val property = "jdk.internal.httpclient.disableHostnameVerification"
+        val previous = System.getProperty(property)
+        try {
+            for (value in listOf("true", "TRUE", "")) {
+                System.setProperty(property, value)
+                val transport = RecordingTransport { response(it, success) }
+                val exception = expectFailure { client(transport).generate(openAi, key, diff) {} }
+                assertTrue(exception.message!!.contains(property))
+                assertTrue(exception.message!!.contains("restart the IDE"))
+                assertTrue(transport.requests.isEmpty())
+                assertEquals(value, System.getProperty(property))
+                assertNull(exception.cause)
+            }
+            System.setProperty(property, "false")
+            val transport = RecordingTransport { response(it, success) }
+            assertEquals("Update test text", client(transport).generate(openAi, key, diff) {})
+            assertEquals(1, transport.requests.size)
+            assertEquals("false", System.getProperty(property))
+        } finally {
+            if (previous == null) System.clearProperty(property) else System.setProperty(property, previous)
+        }
+    }
+
+    @Test
     fun `thread interruption cancels request and preserves interrupt flag`() {
         val future = CompletableFuture<HttpResponse<ByteArray>>()
         try {

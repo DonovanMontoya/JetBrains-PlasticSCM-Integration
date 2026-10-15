@@ -106,11 +106,7 @@ object PlasticCli {
         val tmp = FileUtil.createTempFile("riderplastic-ai", ".cat", true)
         try {
             run(root, listOf("cat", revisionSpec, "--file=${tmp.absolutePath}"), timeoutMs = 60_000)
-            return tmp.inputStream().use { stream ->
-                val result = stream.readNBytes(maxBytes + 1)
-                require(result.size <= maxBytes) { "A selected base revision exceeds the AI size limit." }
-                result
-            }
+            return tmp.inputStream().use { BoundedContent.read(it, maxBytes) }
         } finally {
             FileUtil.delete(tmp)
         }
