@@ -64,6 +64,6 @@ class PlasticBranchWidget(private val project: Project) : StatusBarWidget, Statu
     }
 
     companion object {
-        const val ID = "RiderPlastic.BranchWidget"
+        const val ID = "PlasticSCMIntegration.BranchWidget"
     }
 }

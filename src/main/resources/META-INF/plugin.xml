@@ -1,8 +1,8 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>com.github.donovanmontoya.riderplastic</id>
+    <id>com.donovanmontoya.jetbrains-plasticscm-integration</id>
     <name>Plastic SCM Integration</name>
-    <vendor>donovanmontoya</vendor>
+    <vendor url="https://github.com/DonovanMontoya/JetBrains-PlasticSCM-Integration">Donovan Montoya</vendor>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.vcs</depends>
@@ -18,7 +18,7 @@
         <projectService serviceImplementation="com.github.donovanmontoya.riderplastic.vcs.PlasticWorkspaceState"/>
 
         <postStartupActivity implementation="com.github.donovanmontoya.riderplastic.vcs.PlasticStartupActivity"/>
-        <statusBarWidgetFactory id="RiderPlastic.BranchWidget"
+        <statusBarWidgetFactory id="PlasticSCMIntegration.BranchWidget"
                                 implementation="com.github.donovanmontoya.riderplastic.branch.PlasticBranchWidgetFactory"
                                 order="after codeStyleWidget,before readOnlyWidget"/>
 
@@ -32,13 +32,13 @@
     </extensions>
 
     <actions>
-        <group id="RiderPlastic.Menu" text="Plastic SCM" popup="true">
+        <group id="PlasticSCMIntegration.Menu" text="Plastic SCM" popup="true">
             <add-to-group group-id="VcsGroups" anchor="last"/>
-            <action id="RiderPlastic.SwitchBranch"
+            <action id="PlasticSCMIntegration.SwitchBranch"
                     class="com.github.donovanmontoya.riderplastic.branch.PlasticSwitchBranchAction"
                     text="Switch Branch..."
                     description="Switch the Plastic SCM workspace to another branch"/>
-            <action id="RiderPlastic.CreateBranch"
+            <action id="PlasticSCMIntegration.CreateBranch"
                     class="com.github.donovanmontoya.riderplastic.branch.PlasticCreateBranchAction"
                     text="New Branch..."
                     description="Create a child branch of the current Plastic SCM branch"/>

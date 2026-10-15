@@ -1,5 +1,6 @@
 import org.jetbrains.changelog.Changelog
 import org.jetbrains.changelog.markdownToHTML
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
@@ -105,6 +106,8 @@ intellijPlatform {
     pluginVerification {
         ides {
             recommended()
+            // The plugin targets Rider, so verify against it explicitly in addition to the IDEs above
+            create(IntelliJPlatformType.Rider, providers.gradleProperty("platformVersion"))
         }
     }
 }
