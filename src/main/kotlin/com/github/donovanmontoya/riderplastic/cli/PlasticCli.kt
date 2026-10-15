@@ -77,10 +77,11 @@ object PlasticCli {
                 "--fieldseparator=${PlasticStatusParser.FIELD_SEPARATOR}",
             ),
         )
-        val status = PlasticStatusParser.parse(out, root)
-        if (status.changeset != null) return status
-        // The machine-readable header has varied between cm versions; `--header` reliably starts with `cs:N@...`.
-        return status.copy(changeset = PlasticOutputParsers.parseHeaderChangeset(run(root, "status", "--header")))
+        // The loaded changeset decides which revision every diff is taken against, so read it from the documented
+        // `cm status --header` line (`cs:263@repo@server (head)`) instead of trusting the machine-readable header.
+        // If it can't be determined, leave it unknown: a bare-path `cm cat` is better than a wrong changeset.
+        val changeset = PlasticOutputParsers.parseHeaderChangeset(run(root, "status", "--header"))
+        return PlasticStatusParser.parse(out, root).copy(changeset = changeset)
     }
 
     /** Returns the branch (or `cs:N` / `lb:name`) the workspace currently points at. */
