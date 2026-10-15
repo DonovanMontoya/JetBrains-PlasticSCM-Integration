@@ -17,14 +17,5 @@ class PlasticRootChecker : VcsRootChecker() {
 
     companion object {
         const val METADATA_DIR = ".plastic"
-
-        fun findWorkspaceRoot(file: VirtualFile): VirtualFile? {
-            var current: VirtualFile? = if (file.isDirectory) file else file.parent
-            while (current != null) {
-                if (current.findChild(METADATA_DIR)?.isDirectory == true) return current
-                current = current.parent
-            }
-            return null
-        }
     }
 }

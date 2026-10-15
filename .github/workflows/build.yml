@@ -4,7 +4,7 @@
 # - Run Qodana inspections.
 # - Run the 'buildPlugin' task and prepare artifact for further tests.
 # - Run the 'runPluginVerifier' task.
-# - Create a draft release.
+# - Publish a development GitHub release after all checks pass on main.
 #
 # The workflow is triggered on push and pull_request events.
 #
@@ -21,6 +21,14 @@ on:
   pull_request:
   # Allow running the workflow manually on any branch
   workflow_dispatch:
+    inputs:
+      publish_stable_release:
+        description: Publish the version in gradle.properties as a stable GitHub release (main only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -32,6 +40,9 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
 
       # Free GitHub Actions Environment Disk Space
@@ -44,6 +55,33 @@ jobs:
       # Check out the current repository
       - name: Fetch Sources
         uses: actions/checkout@v6
+
+      # Stable builds retain pluginVersion. Main pushes use the next patch's
+      # development version so every archive has a distinct plugin version.
+      - name: Select Plugin Version
+        id: version
+        shell: bash
+        env:
+          PUBLISH_STABLE_RELEASE: ${{ inputs.publish_stable_release }}
+        run: |
+          set -euo pipefail
+          BASE_VERSION=$(sed -nE 's/^pluginVersion[[:space:]]*=[[:space:]]*([^[:space:]]+)[[:space:]]*$/\1/p' gradle.properties)
+          if [[ ! "$BASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "pluginVersion must be a stable SemVer version (for example, 1.0.0)." >&2
+            exit 1
+          fi
+          VERSION="$BASE_VERSION"
+          PRERELEASE=false
+          if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
+            VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))-dev.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+            PRERELEASE=true
+          fi
+          if [[ "$PUBLISH_STABLE_RELEASE" == true && "$GITHUB_REF" != refs/heads/main ]]; then
+            echo "Stable releases must be built from main." >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
 
       # Set up the Java environment for the next steps
       - name: Setup Java
@@ -58,25 +96,18 @@ jobs:
 
       # Build plugin
       - name: Build plugin
-        run: ./gradlew buildPlugin
-
-      # Prepare plugin archive content for creating artifact
-      - name: Prepare Plugin Artifact
-        id: artifact
-        shell: bash
-        run: |
-          cd ${{ github.workspace }}/build/distributions
-          FILENAME=`ls *.zip`
-          unzip "$FILENAME" -d content
-
-          echo "filename=${FILENAME:0:-4}" >> $GITHUB_OUTPUT
+        env:
+          PLUGIN_VERSION: ${{ steps.version.outputs.version }}
+        run: ./gradlew buildPlugin -PpluginVersion="$PLUGIN_VERSION"
 
       # Store an already-built plugin as an artifact for downloading
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ steps.artifact.outputs.filename }}
-          path: ./build/distributions/content/*/*
+          name: plugin-distribution
+          # Preserve the installable ZIP and its top-level plugin directory.
+          path: ./build/distributions/*.zip
+          if-no-files-found: error
 
   # Run tests and upload a code coverage report
   test:
@@ -111,7 +142,9 @@ jobs:
 
       # Run tests
       - name: Run Tests
-        run: ./gradlew check
+        env:
+          PLUGIN_VERSION: ${{ needs.build.outputs.version }}
+        run: ./gradlew check -PpluginVersion="$PLUGIN_VERSION"
 
       # Collect Tests Result of failed tests
       - name: Collect Tests Result
@@ -200,7 +233,9 @@ jobs:
 
       # Run Verify Plugin task and IntelliJ Plugin Verifier tool
       - name: Run Plugin Verification tasks
-        run: ./gradlew verifyPlugin
+        env:
+          PLUGIN_VERSION: ${{ needs.build.outputs.version }}
+        run: ./gradlew verifyPlugin -PpluginVersion="$PLUGIN_VERSION"
 
       # Collect Plugin Verifier Result
       - name: Collect Plugin Verifier Result
@@ -209,3 +244,60 @@ jobs:
         with:
           name: pluginVerifier-result
           path: ${{ github.workspace }}/build/reports/pluginVerifier
+
+  # GitHub releases are independent of the manual Marketplace workflow.
+  # Pull requests and ordinary manual builds never publish a release.
+  release:
+    name: Publish GitHub Release
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' && inputs.publish_stable_release))
+    needs: [ build, test, inspectCode, verify ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+
+      - name: Download Installable Plugin
+        uses: actions/download-artifact@v8
+        with:
+          name: plugin-distribution
+          path: release-assets
+
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PLUGIN_VERSION: ${{ needs.build.outputs.version }}
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          ASSETS=(release-assets/*.zip)
+          if [[ ${#ASSETS[@]} -ne 1 ]]; then
+            echo "Expected exactly one installable plugin ZIP." >&2
+            exit 1
+          fi
+          unzip -t "${ASSETS[0]}"
+          FLAGS=()
+          if [[ "$PRERELEASE" == true ]]; then
+            FLAGS+=(--prerelease --latest=false)
+            NOTES="Development build from main at $GITHUB_SHA. Install the attached ZIP from disk. This build is not published to JetBrains Marketplace."
+          else
+            FLAGS+=(--latest)
+            NOTES="Stable GitHub build from $GITHUB_SHA. Install the attached ZIP from disk. Marketplace publishing is a separate manual action."
+          fi
+          # Create the tag atomically at the tested commit. A pre-existing tag
+          # (even without a release) must fail instead of silently using other sources.
+          # Never move tags, replace release assets, or delete drafts.
+          gh api --method POST "repos/$GH_REPO/git/refs" \
+            -f "ref=refs/tags/v$PLUGIN_VERSION" \
+            -f "sha=$GITHUB_SHA" > /dev/null
+          gh release create "v$PLUGIN_VERSION" "${ASSETS[@]}" \
+            --verify-tag \
+            --title "$PLUGIN_VERSION" \
+            --notes "$NOTES" \
+            --generate-notes \
+            "${FLAGS[@]}"
