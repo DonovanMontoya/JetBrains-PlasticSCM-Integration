@@ -86,6 +86,8 @@ class PlasticParsersTest {
     @Test
     fun `loaded changeset is read from status header`() {
         assertEquals(263L, PlasticOutputParsers.parseHeaderChangeset("cs:263@MyRepo@cloud (head)\nCH foo.cs"))
+        // Real output from a Unity Version Control cloud workspace.
+        assertEquals(303L, PlasticOutputParsers.parseHeaderChangeset("cs:303@WasteManagement@UnityEnvironmentalUniversity@cloud (head)"))
         assertEquals(12L, PlasticOutputParsers.parseHeaderChangeset("\r\ncs:12@rep@localhost:8087\r\n"))
         assertNull(PlasticOutputParsers.parseHeaderChangeset("Branch /main@rep@server"))
     }
