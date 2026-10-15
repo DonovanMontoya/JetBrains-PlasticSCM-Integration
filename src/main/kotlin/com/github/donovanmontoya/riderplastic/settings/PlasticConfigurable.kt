@@ -76,7 +76,7 @@ class PlasticConfigurable : BoundConfigurable("Plastic SCM") {
                     },
                 ).bindItem({ settings.toolWindowIcon }, { settings.toolWindowIcon = it ?: PlasticToolWindowIcon.LANES })
             }
-            group("AI commit messages (your API key)") {
+            group("AI Commit Messages (Your API Key)") {
                 row {
                     comment("Selected file diffs are sent to the configured provider or endpoint only when you invoke Generate.")
                 }
@@ -86,7 +86,7 @@ class PlasticConfigurable : BoundConfigurable("Plastic SCM") {
                 row("Provider:") {
                     providerField = comboBox(
                         AiProvider.entries,
-                        SimpleListCellRenderer.create<AiProvider> { label, value, _ -> label.text = value?.let(::providerName).orEmpty() },
+                        SimpleListCellRenderer.create { label, value, _ -> label.text = value?.let(::providerName).orEmpty() },
                     ).component
                 }
                 row("OpenAI model:") {
