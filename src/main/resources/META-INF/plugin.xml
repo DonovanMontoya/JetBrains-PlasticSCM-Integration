@@ -5,11 +5,37 @@
     <vendor>donovanmontoya</vendor>
 
     <depends>com.intellij.modules.platform</depends>
-
-    <resource-bundle>messages.MyBundle</resource-bundle>
+    <depends>com.intellij.modules.vcs</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.donovanmontoya.riderplastic.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
-        <postStartupActivity implementation="com.github.donovanmontoya.riderplastic.startup.MyProjectActivity" />
+        <vcs name="PlasticSCM"
+             vcsClass="com.github.donovanmontoya.riderplastic.vcs.PlasticVcs"
+             displayName="Plastic SCM"
+             administrativeAreaName=".plastic"/>
+        <vcsRootChecker implementation="com.github.donovanmontoya.riderplastic.vcs.PlasticRootChecker"/>
+
+        <applicationService serviceImplementation="com.github.donovanmontoya.riderplastic.settings.PlasticSettings"/>
+        <projectService serviceImplementation="com.github.donovanmontoya.riderplastic.vcs.PlasticWorkspaceState"/>
+
+        <postStartupActivity implementation="com.github.donovanmontoya.riderplastic.vcs.PlasticStartupActivity"/>
+        <statusBarWidgetFactory id="RiderPlastic.BranchWidget"
+                                implementation="com.github.donovanmontoya.riderplastic.branch.PlasticBranchWidgetFactory"
+                                order="after codeStyleWidget,before readOnlyWidget"/>
+
+        <notificationGroup id="Plastic SCM" displayType="BALLOON"/>
     </extensions>
+
+    <actions>
+        <group id="RiderPlastic.Menu" text="Plastic SCM" popup="true">
+            <add-to-group group-id="VcsGroups" anchor="last"/>
+            <action id="RiderPlastic.SwitchBranch"
+                    class="com.github.donovanmontoya.riderplastic.branch.PlasticSwitchBranchAction"
+                    text="Switch Branch..."
+                    description="Switch the Plastic SCM workspace to another branch"/>
+            <action id="RiderPlastic.CreateBranch"
+                    class="com.github.donovanmontoya.riderplastic.branch.PlasticCreateBranchAction"
+                    text="New Branch..."
+                    description="Create a child branch of the current Plastic SCM branch"/>
+        </group>
+    </actions>
 </idea-plugin>
