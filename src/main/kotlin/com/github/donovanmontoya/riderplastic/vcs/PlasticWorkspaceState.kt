@@ -12,7 +12,6 @@ import com.intellij.openapi.vcs.ProjectLevelVcsManager
 import com.intellij.util.messages.Topic
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
 
 data class PlasticWorkspaceInfo(val selector: String?, val changeset: Long?)
 
@@ -35,7 +34,7 @@ class PlasticWorkspaceState(private val project: Project) : Disposable {
 
     private val infos = ConcurrentHashMap<Path, PlasticWorkspaceInfo>()
     private val nestedByRoot = ConcurrentHashMap<Path, PlasticNestedRootChanges>()
-    private val statusReads = AtomicLong()
+    private val statusReads = ConcurrentHashMap<Path, Long>()
 
     fun roots(): List<Path> =
         ProjectLevelVcsManager.getInstance(project).getRootsUnderVcs(PlasticVcs.getInstance(project)).map { it.toNioPath() }
@@ -62,14 +61,18 @@ class PlasticWorkspaceState(private val project: Project) : Disposable {
     fun statusRead(root: Path, status: PlasticStatus) {
         updateChangeset(root, status.changeset)
         nestedByRoot[root] = PlasticNestedRootChanges.of(project, root, status)
-        statusReads.incrementAndGet()
+        statusReads.merge(root, 1, Long::plus)
     }
 
+    /** How many times [statusRead] was called for each workspace root read so far, for [unreadSince]. */
+    fun statusReadCounts(): Map<Path, Long> = HashMap(statusReads)
+
     /**
-     * How many times [statusRead] was called. A change list update that leaves this unchanged involved only other
-     * VCSs, so [nestedChanges] may be out of date and needs [PlasticNestedRootChanges.collect].
+     * The workspace roots read before [snapshot] was taken from [statusReadCounts] and not since. A change list update
+     * that did not read a workspace may leave its part of [nestedChanges] out of date, needing
+     * [PlasticNestedRootChanges.collect].
      */
-    val statusReadCount: Long get() = statusReads.get()
+    fun unreadSince(snapshot: Map<Path, Long>): List<Path> = roots().filter { root -> statusReads[root]?.let { it == snapshot[root] } == true }
 
     /** Plastic changes in folders the IDE assigns to another VCS, across all workspaces. */
     fun nestedChanges(): PlasticNestedRootChanges = PlasticNestedRootChanges.merge(roots().mapNotNull { nestedByRoot[it] })

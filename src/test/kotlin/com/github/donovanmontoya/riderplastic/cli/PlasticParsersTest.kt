@@ -55,6 +55,15 @@ class PlasticParsersTest {
     }
 
     @Test
+    fun `status leaves out items added and then deleted locally`() {
+        // Real output after `cm add` and deleting the file: there is no base revision and no file left.
+        val output = "AD+LD$sep${p("Added.cs")}${sep}False${sep}NO_MERGES\nCO+LD$sep${p("Gone.cs")}${sep}False${sep}NO_MERGES"
+        val status = PlasticStatusParser.parse(output, root)
+        assertEquals(PlasticChangeType.DELETED, status.entries.single().type)
+        assertEquals(p("Gone.cs"), status.entries.single().path.toString())
+    }
+
+    @Test
     fun `status resolves relative paths and prefers the most specific entry`() {
         val output = "CO${sep}a.cs${sep}False${sep}NO_MERGES\nMV${sep}b.cs${sep}a.cs${sep}False${sep}NO_MERGES"
         val status = PlasticStatusParser.parse(output, root)

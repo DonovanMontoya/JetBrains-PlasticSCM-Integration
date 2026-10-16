@@ -83,7 +83,10 @@ object PlasticStatusParser {
             }
 
             // An item in several states at once joins their codes, as in `CO+RP` (checked out and replaced).
-            val type = fields[0].split('+').mapNotNull { TYPE_MAP[it] }.maxByOrNull { priority(it) } ?: continue
+            val codes = fields[0].split('+')
+            // Added and then deleted locally (`AD+LD`): there is neither a base revision nor a file to compare or check in.
+            if ("LD" in codes && codes.any { TYPE_MAP[it] == PlasticChangeType.ADDED }) continue
+            val type = codes.mapNotNull { TYPE_MAP[it] }.maxByOrNull { priority(it) } ?: continue
             if (fields.size < 2) continue
 
             // Trailing fields are <isDirectory> and <merge info>; everything between type and those are paths.

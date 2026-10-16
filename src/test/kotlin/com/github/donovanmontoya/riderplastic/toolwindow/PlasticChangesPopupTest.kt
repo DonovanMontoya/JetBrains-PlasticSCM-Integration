@@ -7,12 +7,16 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.AnActionWrapper
 import com.intellij.openapi.actionSystem.DataContext
+import com.intellij.openapi.actionSystem.ex.ActionUtil
+import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.vcs.LocalFilePath
 import com.intellij.openapi.vcs.VcsDataKeys
 import com.intellij.openapi.vcs.changes.Change
 import com.intellij.openapi.vcs.changes.CurrentContentRevision
 import com.intellij.openapi.vcs.changes.ui.ChangesListView
+import com.intellij.testFramework.TestActionEvent
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import javax.swing.JPanel
 
 class PlasticChangesPopupTest : BasePlatformTestCase() {
 
@@ -55,6 +59,33 @@ class PlasticChangesPopupTest : BasePlatformTestCase() {
         data = dataOf(tree)
         assertEmpty(data.getData(VcsDataKeys.CHANGES)!!.toList())
         assertEquals(listOf(privateFile), data.getData(ChangesListView.UNVERSIONED_FILE_PATHS_DATA_KEY)?.toList())
+    }
+
+    fun `test actions acting through the owning VCS are disabled for items another VCS owns`() {
+        val guarded = PlasticChangesPopupGroup.PlasticOwnedOnly(
+            object : AnAction() {
+                override fun actionPerformed(e: AnActionEvent) = Unit
+            },
+        )
+        assertTrue(isEnabled(guarded, otherVcsSelected = false))
+        assertFalse(isEnabled(guarded, otherVcsSelected = true))
+    }
+
+    fun `test shortcuts of those actions do not reach items another VCS owns`() {
+        val component = JPanel()
+        PlasticChangesPopupGroup.guardShortcuts(component, testRootDisposable)
+        val blocker = ActionUtil.getActions(component).single()
+        // The default keymap binds Add to VCS, Move to Another Changelist and others.
+        assertTrue(blocker.shortcutSet.hasShortcuts())
+        // Disabled, the shortcut goes on to the IDE's action as usual.
+        assertFalse(isEnabled(blocker, otherVcsSelected = false))
+        assertTrue(isEnabled(blocker, otherVcsSelected = true))
+    }
+
+    private fun isEnabled(action: AnAction, otherVcsSelected: Boolean): Boolean {
+        val event = TestActionEvent.createTestEvent(action, SimpleDataContext.getSimpleContext(PlasticChangesTree.OTHER_VCS_SELECTED, otherVcsSelected))
+        action.update(event)
+        return event.presentation.isEnabled
     }
 
     private fun dataOf(tree: PlasticChangesTree): DataContext = DataManager.getInstance().getDataContext(tree)

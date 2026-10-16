@@ -83,7 +83,9 @@ import java.awt.FlowLayout
 import java.awt.Point
 import java.nio.ByteBuffer
 import java.nio.file.Files
+import java.nio.file.Path
 import java.util.concurrent.Callable
+import java.util.concurrent.ConcurrentHashMap
 import javax.swing.Icon
 import javax.swing.JButton
 import javax.swing.JPanel
@@ -101,9 +103,9 @@ class PlasticCommitPanel(private val project: Project) : JPanel(BorderLayout()),
     private val undoAction = UndoChangesAction()
     private val workspaceState = PlasticWorkspaceState.getInstance(project)
     private val nestedRootScan = Alarm(Alarm.ThreadToUse.POOLED_THREAD, this)
-    @Volatile private var statusReadsSeen = workspaceState.statusReadCount
+    private val nestedRootsToScan: MutableSet<Path> = ConcurrentHashMap.newKeySet()
+    @Volatile private var statusReadsSeen = workspaceState.statusReadCounts()
     @Volatile private var shown = false
-    @Volatile private var nestedRootScanPending = false
     @Volatile private var generationIndicator: ProgressIndicator? = null
     @Volatile private var disposed = false
     @Volatile private var generationActive = false
@@ -117,6 +119,7 @@ class PlasticCommitPanel(private val project: Project) : JPanel(BorderLayout()),
         PopupHandler.installPopupMenu(tree, popup, ActionPlaces.CHANGES_VIEW_POPUP)
         // The IDE's Rollback shortcut would revert files a nested Git repository owns through Git; keep it on cm undo here.
         undoAction.registerCustomShortcutSet(KeymapUtil.getActiveKeymapShortcuts(PlasticChangesPopupGroup.ROLLBACK), tree)
+        PlasticChangesPopupGroup.guardShortcuts(tree, this)
 
         val expander = DefaultTreeExpander(tree)
         val actions = DefaultActionGroup().apply {
@@ -170,9 +173,11 @@ class PlasticCommitPanel(private val project: Project) : JPanel(BorderLayout()),
             ChangeListListener.TOPIC,
             object : ChangeListListener {
                 override fun changeListUpdateDone() {
-                    // The change provider's workspace status also covers nested folders; without it, another VCS changed.
-                    val statusReads = workspaceState.statusReadCount
-                    if (statusReads == statusReadsSeen) scheduleNestedRootScan() else statusReadsSeen = statusReads
+                    // The change provider's workspace status also covers nested folders; in a workspace it did not
+                    // read, only another VCS may have changed.
+                    val unread = workspaceState.unreadSince(statusReadsSeen)
+                    statusReadsSeen = workspaceState.statusReadCounts()
+                    scheduleNestedRootScan(unread)
                     reloadLater()
                 }
             },
@@ -183,7 +188,7 @@ class PlasticCommitPanel(private val project: Project) : JPanel(BorderLayout()),
             object : Activatable {
                 override fun showNotify() {
                     shown = true
-                    if (nestedRootScanPending) scheduleNestedRootScan()
+                    if (nestedRootsToScan.isNotEmpty()) startNestedRootScan()
                 }
 
                 override fun hideNotify() {
@@ -194,9 +199,9 @@ class PlasticCommitPanel(private val project: Project) : JPanel(BorderLayout()),
         Disposer.register(this, visibility)
 
         reload()
-        // Updates that only another VCS took part in may have happened before this panel existed. Before the first
-        // workspace status, there is nothing to catch up on: that status covers the nested folders too.
-        if (workspaceState.statusReadCount > 0) scheduleNestedRootScan()
+        // Updates that only another VCS took part in may have happened before this panel existed. Before a workspace's
+        // first status, there is nothing to catch up on: that status covers the nested folders too.
+        scheduleNestedRootScan(workspaceState.roots().filter { it in statusReadsSeen })
         updateBranchLabel()
     }
 
@@ -214,19 +219,23 @@ class PlasticCommitPanel(private val project: Project) : JPanel(BorderLayout()),
 
     /**
      * Plastic changes in folders another VCS owns (such as a nested Git repository) never reach the IDE's change list.
-     * The change provider records them with the rest of the workspace; after updates that only another VCS took part
-     * in, they are read with `cm status` here, once the panel is visible. This does nothing without such folders.
+     * The change provider records them with the rest of the workspace; for workspaces [roots] that an update did not
+     * read, they are read with `cm status` here, once the panel is visible. This does nothing without such folders.
      */
-    private fun scheduleNestedRootScan() {
-        if (disposed || project.isDisposed) return
-        nestedRootScanPending = true
-        if (!shown) return
-        nestedRootScanPending = false
+    private fun scheduleNestedRootScan(roots: Collection<Path>) {
+        if (roots.isEmpty() || disposed || project.isDisposed) return
+        nestedRootsToScan += roots
+        if (shown) startNestedRootScan()
+    }
+
+    private fun startNestedRootScan() {
         nestedRootScan.cancelAllRequests()
         nestedRootScan.addRequest({
-            val statusReads = workspaceState.statusReadCount
+            val roots = nestedRootsToScan.toSet()
+            nestedRootsToScan -= roots
+            val statusReads = workspaceState.statusReadCounts()
             val result = try {
-                PlasticNestedRootChanges.collect(project)
+                PlasticNestedRootChanges.collect(project, roots)
             } catch (_: ProcessCanceledException) {
                 return@addRequest
             } catch (e: VcsException) {
@@ -234,7 +243,8 @@ class PlasticCommitPanel(private val project: Project) : JPanel(BorderLayout()),
                 return@addRequest
             }
             // A workspace status read meanwhile is newer than this scan.
-            if (workspaceState.statusReadCount == statusReads && workspaceState.updateNestedChanges(result)) reloadLater()
+            val unread = workspaceState.unreadSince(statusReads)
+            if (workspaceState.updateNestedChanges(result.filterKeys { it in unread })) reloadLater()
         }, NESTED_ROOT_SCAN_DELAY_MS)
     }
 

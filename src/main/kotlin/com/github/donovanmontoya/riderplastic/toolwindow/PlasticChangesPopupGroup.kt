@@ -1,15 +1,20 @@
 package com.github.donovanmontoya.riderplastic.toolwindow
 
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.AnActionWrapper
+import com.intellij.openapi.actionSystem.CustomShortcutSet
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.IdeActions
+import com.intellij.openapi.keymap.KeymapUtil
 import com.intellij.openapi.project.DumbAware
+import com.intellij.openapi.project.DumbAwareAction
 import java.util.concurrent.ConcurrentHashMap
+import javax.swing.JComponent
 
 /**
  * The IDE's Local Changes context menu, including the actions other plugins add to it, for the Plastic SCM tree.
@@ -37,14 +42,28 @@ class PlasticChangesPopupGroup(private val replacements: Map<String, AnAction>) 
         }).toTypedArray()
     }
 
-    private class PlasticOwnedOnly(action: AnAction) : AnActionWrapper(action) {
+    internal class PlasticOwnedOnly(action: AnAction) : AnActionWrapper(action) {
         override fun update(e: AnActionEvent) {
             super.update(e)
-            if (e.getData(PlasticChangesTree.OTHER_VCS_SELECTED) == true) e.presentation.isEnabled = false
+            if (e.otherVcsSelected) e.presentation.isEnabled = false
         }
     }
 
+    /** Takes the guarded actions' shortcuts, doing nothing, while items another VCS owns are selected. */
+    private class OtherVcsShortcutBlocker : DumbAwareAction() {
+        override fun getActionUpdateThread() = ActionUpdateThread.BGT
+
+        // When disabled, the shortcut goes on to the IDE's action.
+        override fun update(e: AnActionEvent) {
+            e.presentation.isEnabledAndVisible = e.otherVcsSelected
+        }
+
+        override fun actionPerformed(e: AnActionEvent) = Unit
+    }
+
     companion object {
+        private val AnActionEvent.otherVcsSelected: Boolean get() = getData(PlasticChangesTree.OTHER_VCS_SELECTED) == true
+
         private const val CHANGES_VIEW_POPUP_MENU = "ChangesViewPopupMenu"
         const val CHECKIN_FILES = "CheckinFiles"
         const val ROLLBACK = IdeActions.CHANGES_VIEW_ROLLBACK
@@ -54,5 +73,17 @@ class PlasticChangesPopupGroup(private val replacements: Map<String, AnAction>) 
             "ChangesView.NewChangeList", "ChangesView.RemoveChangeList", "ChangesView.SetDefault", "ChangesView.Rename",
             "ChangesView.Shelve",
         )
+
+        /** Not in the menu, but its shortcut reaches the tree. */
+        private const val SHELVE_SILENTLY = "ChangesView.ShelveSilently"
+
+        /**
+         * Keeps the shortcuts of the actions this menu disables for items another VCS owns from reaching those actions
+         * while [component] has focus.
+         */
+        fun guardShortcuts(component: JComponent, parentDisposable: Disposable) {
+            val shortcuts = (OWNING_VCS_ACTIONS + SHELVE_SILENTLY).flatMap { KeymapUtil.getActiveKeymapShortcuts(it).shortcuts.asList() }
+            OtherVcsShortcutBlocker().registerCustomShortcutSet(CustomShortcutSet(*shortcuts.toTypedArray()), component, parentDisposable)
+        }
     }
 }
