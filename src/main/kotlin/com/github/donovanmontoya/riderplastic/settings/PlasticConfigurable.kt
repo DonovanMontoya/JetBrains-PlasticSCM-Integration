@@ -24,6 +24,7 @@ import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.bindItem
 import com.intellij.ui.dsl.builder.bindText
 import com.intellij.ui.dsl.builder.panel
+import com.intellij.ui.layout.selectedValueIs
 import java.nio.file.Path
 import javax.swing.JButton
 import javax.swing.JComboBox
@@ -78,7 +79,7 @@ class PlasticConfigurable : BoundConfigurable("Plastic SCM") {
             }
             group("AI Commit Messages (Your API Key)") {
                 row {
-                    comment("Selected file diffs are sent to the configured provider or endpoint only when you invoke Generate.")
+                    comment("Checked file diffs are sent to the selected provider only when you click the AI button in the Plastic SCM tool window.")
                 }
                 row {
                     comment("Hosted API usage is billed separately by the provider; an IDE AI subscription does not cover these calls.")
@@ -89,26 +90,29 @@ class PlasticConfigurable : BoundConfigurable("Plastic SCM") {
                         SimpleListCellRenderer.create { label, value, _ -> label.text = value?.let(::providerName).orEmpty() },
                     ).component
                 }
+                // Only the selected provider's fields are shown; the others keep their values for switching back.
                 row("OpenAI model:") {
                     openAiModelField = textField().align(AlignX.FILL)
                         .comment("Enter a model ID available to your OpenAI API account.")
                         .component
-                }
+                }.visibleIf(providerField.selectedValueIs(AiProvider.OPENAI))
                 row("Claude model:") {
                     anthropicModelField = textField().align(AlignX.FILL)
                         .comment("Enter a model ID available to your Anthropic API account. Uses the native Messages API.")
                         .component
-                }
-                row("Local model:") {
-                    localModelField = textField().align(AlignX.FILL)
-                        .comment("Enter the model ID served by your OpenAI-compatible endpoint.")
-                        .component
-                }
-                row("Local base URL:") {
-                    localBaseUrlField = textField().align(AlignX.FILL)
-                        .comment("Include /v1. HTTP is allowed only for loopback hosts; other endpoints require HTTPS. Never put a key in this URL.")
-                        .component
-                }
+                }.visibleIf(providerField.selectedValueIs(AiProvider.ANTHROPIC))
+                rowsRange {
+                    row("Local model:") {
+                        localModelField = textField().align(AlignX.FILL)
+                            .comment("Enter the model ID served by your OpenAI-compatible endpoint.")
+                            .component
+                    }
+                    row("Local base URL:") {
+                        localBaseUrlField = textField().align(AlignX.FILL)
+                            .comment("Include /v1. HTTP is allowed only for loopback hosts; other endpoints require HTTPS. Never put a key in this URL.")
+                            .component
+                    }
+                }.visibleIf(providerField.selectedValueIs(AiProvider.LOCAL))
                 row {
                     keyScopeLabel = label("").component
                 }

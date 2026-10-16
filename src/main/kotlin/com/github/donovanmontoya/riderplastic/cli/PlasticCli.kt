@@ -6,6 +6,7 @@ import com.intellij.execution.process.CapturingProcessHandler
 import com.intellij.execution.process.ProcessOutput
 import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.util.io.FileUtil
@@ -59,7 +60,8 @@ object PlasticCli {
         } else {
             handler.runProcess(timeoutMs)
         }
-        if (output.isCancelled) throw VcsException("cm ${args.firstOrNull().orEmpty()} was cancelled")
+        // Report cancellation as such so callers stop quietly instead of logging an error.
+        if (output.isCancelled) throw ProcessCanceledException()
         LOG.debug { "cm exited with ${output.exitCode}" }
         return output
     }
@@ -68,21 +70,24 @@ object PlasticCli {
 
     fun version(workingDir: Path): String = run(workingDir, "version").trim()
 
-    fun status(root: Path): PlasticStatus {
+    /** Pending changes in the workspace at [root], limited to [scope] (a folder inside it) when given. */
+    fun status(root: Path, scope: Path = root): PlasticStatus {
         val out = run(
             root,
             listOf(
-                "status", root.toString(),
+                "status", scope.toString(),
                 "--all",
                 "--machinereadable",
                 "--fieldseparator=${PlasticStatusParser.FIELD_SEPARATOR}",
             ),
         )
-        // The loaded changeset decides which revision every diff is taken against, so read it from the documented
-        // `cm status --header` line (`cs:263@repo@server (head)`) instead of trusting the machine-readable header.
-        // If it can't be determined, leave it unknown: a bare-path `cm cat` is better than a wrong changeset.
-        val changeset = PlasticOutputParsers.parseHeaderChangeset(run(root, "status", "--header"))
-        return PlasticStatusParser.parse(out, root).copy(changeset = changeset)
+        // The loaded changeset decides which revision every diff is taken against. The machine-readable STATUS line
+        // carries the working changeset, also when it is behind head (`STATUS#~#0#~#repo#~#server` at cs:0 - head:206).
+        // Only if it is missing, ask `cm status --header`; if that fails too, leave it unknown: a bare-path `cm cat`
+        // is better than a wrong changeset.
+        val status = PlasticStatusParser.parse(out, root)
+        if (status.changeset != null) return status
+        return status.copy(changeset = PlasticOutputParsers.parseHeaderChangeset(run(root, "status", "--header")))
     }
 
     /** Returns the branch (or `cs:N` / `lb:name`) the workspace currently points at. */

@@ -10,8 +10,10 @@ as a first-class VCS, so it works through the same UI you use for Git:
 
 - **Plastic SCM tool window**: a dedicated commit panel modelled on the Commit tool window (change tree with
   checkboxes, unversioned files, diff/undo/refresh toolbar, comment box and **Check In** button). It only shows
-  Plastic items, so it sits next to Git's Commit tool window in projects that use both. The inline **Generate** button
-  drafts a check-in comment using your own OpenAI, Anthropic Claude, or OpenAI-compatible endpoint settings
+  Plastic items, so it sits next to Git's Commit tool window in projects that use both. Right-clicking files opens the
+  same context menu as Local Changes (Check In File, Rollback, Show Diff, Jump to Source, Delete, changelists, patches,
+  shelve, Local History). The small AI button next to **Check In** drafts a check-in comment using your own OpenAI,
+  Anthropic Claude, or OpenAI-compatible endpoint settings
 - **Check in** with a comment; checked unversioned files are added (`cm add`) first
 - Plastic changes also show up in the IDE's shared local-changes model (gutter markers, file colors)
 - **Rollback** (`cm undo`), **diff against the base revision**, gutter change markers
@@ -39,8 +41,8 @@ OpenAI-compatible endpoint. Enter the model identifier and your own provider API
 key controls. Local endpoints accept a configurable `/v1` base URL and an optional key. OpenAI and Claude
 use their native provider APIs. Your provider account is billed separately from any IDE AI subscription.
 
-In the Plastic SCM tool window, check the files to include, review the displayed destination and model,
-then allow that request with the sharing checkbox and click **Generate**. Only those checked Plastic files'
+In the Plastic SCM tool window, check the files to include and click the AI button next to **Check In**. Its tooltip
+shows the destination and model the request goes to; clicking it again while it runs cancels. Only those checked Plastic files'
 text diffs are prepared; unchecked files and Git changes are not included. New files contribute their text.
 Generation never starts automatically and never checks files in. Review the generated message before **Check In**.
 

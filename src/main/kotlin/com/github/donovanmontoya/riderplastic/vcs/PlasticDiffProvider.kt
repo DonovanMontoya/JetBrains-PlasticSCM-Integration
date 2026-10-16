@@ -30,6 +30,6 @@ class PlasticDiffProvider(private val project: Project) : DiffProvider {
         val filePath = VcsUtil.getFilePath(selectedFile)
         val root = PlasticVcs.rootFor(project, filePath) ?: return null
         val cs = (revisionNumber as? PlasticRevisionNumber)?.changeset ?: revisionNumber.asString().toLongOrNull() ?: return null
-        return PlasticContentRevision(root, filePath, PlasticRevisionNumber(cs), PlasticFileRevision.specAtChangeset(filePath, cs))
+        return PlasticContentRevision(project, root, filePath, PlasticRevisionNumber(cs))
     }
 }

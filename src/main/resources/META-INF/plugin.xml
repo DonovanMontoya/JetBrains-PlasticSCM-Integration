@@ -30,6 +30,10 @@
                     secondary="false"
                     icon="/icons/plasticLanes.svg"
                     factoryClass="com.github.donovanmontoya.riderplastic.toolwindow.PlasticToolWindowFactory"/>
+        <diff.actions.ShowDiffAction.ExtensionProvider
+                implementation="com.github.donovanmontoya.riderplastic.toolwindow.PlasticShowDiffActionProvider"/>
+        <diff.actions.ShowStandaloneDiffAction.ExtensionProvider
+                implementation="com.github.donovanmontoya.riderplastic.toolwindow.PlasticShowStandaloneDiffActionProvider"/>
 
         <notificationGroup id="Plastic SCM" displayType="BALLOON"/>
     </extensions>

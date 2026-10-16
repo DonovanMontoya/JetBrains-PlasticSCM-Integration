@@ -11,6 +11,7 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.vcs.VcsException
 import com.intellij.openapi.vcs.changes.VcsDirtyScopeManager
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
@@ -104,6 +105,14 @@ object PlasticBranchOperations {
     fun notifyError(project: Project, title: String, error: Throwable) {
         NotificationGroupManager.getInstance().getNotificationGroup(NOTIFICATION_GROUP)
             .createNotification(title, error.message ?: error.toString(), NotificationType.ERROR)
+            .notify(project)
+    }
+
+    /** One notification for every error of a batch operation; nothing if there were none. */
+    fun notifyErrors(project: Project, title: String, errors: List<VcsException>) {
+        if (errors.isEmpty()) return
+        NotificationGroupManager.getInstance().getNotificationGroup(NOTIFICATION_GROUP)
+            .createNotification(title, errors.joinToString("\n") { it.message }, NotificationType.ERROR)
             .notify(project)
     }
 
