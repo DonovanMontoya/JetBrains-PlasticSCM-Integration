@@ -5,6 +5,7 @@ import com.github.donovanmontoya.riderplastic.history.PlasticHistoryProvider
 import com.github.donovanmontoya.riderplastic.settings.PlasticConfigurable
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vcs.AbstractVcs
 import com.intellij.openapi.vcs.FilePath
 import com.intellij.openapi.vcs.ProjectLevelVcsManager
@@ -66,11 +67,18 @@ class PlasticVcs(project: Project) : AbstractVcs(project, NAME) {
         fun getInstance(project: Project): PlasticVcs =
             ProjectLevelVcsManager.getInstance(project).findVcsByName(NAME) as PlasticVcs
 
-        /** The Plastic workspace root that contains [path], as configured in the project's VCS mappings. */
-        fun rootFor(project: Project, path: FilePath): Path? {
-            val manager = ProjectLevelVcsManager.getInstance(project)
-            if (manager.getVcsFor(path)?.name != NAME) return null
-            return manager.getVcsRootFor(path)?.toNioPath()
-        }
+        /**
+         * The mapped Plastic workspace root that contains [path]. This includes folders the IDE assigns to another VCS,
+         * such as a Git repository nested in the workspace, whose files Plastic still tracks.
+         */
+        fun rootFor(project: Project, path: FilePath): Path? =
+            ProjectLevelVcsManager.getInstance(project).getRootsUnderVcs(getInstance(project))
+                .filter { FileUtil.isAncestor(it.path, path.path, false) }
+                .maxByOrNull { it.path.length }
+                ?.toNioPath()
+
+        /** Whether the IDE assigns [path] to Plastic, rather than to another VCS mapped inside the workspace. */
+        fun ownsInIde(project: Project, path: FilePath): Boolean =
+            ProjectLevelVcsManager.getInstance(project).getVcsFor(path)?.name == NAME
     }
 }

@@ -1,15 +1,18 @@
 package com.github.donovanmontoya.riderplastic.vcs
 
 import com.github.donovanmontoya.riderplastic.cli.PlasticCli
+import com.github.donovanmontoya.riderplastic.cli.PlasticStatus
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vcs.ProjectLevelVcsManager
 import com.intellij.util.messages.Topic
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 data class PlasticWorkspaceInfo(val selector: String?, val changeset: Long?)
 
@@ -24,13 +27,15 @@ fun interface PlasticWorkspaceListener {
 }
 
 /**
- * Caches the branch and changeset each Plastic workspace root is on.
+ * Caches the branch and changeset each Plastic workspace root is on, and its changes in folders another VCS owns.
  * Refreshed from the change provider so it stays in sync with the Commit tool window.
  */
 @Service(Service.Level.PROJECT)
 class PlasticWorkspaceState(private val project: Project) : Disposable {
 
     private val infos = ConcurrentHashMap<Path, PlasticWorkspaceInfo>()
+    private val nestedByRoot = ConcurrentHashMap<Path, PlasticNestedRootChanges>()
+    private val statusReads = AtomicLong()
 
     fun roots(): List<Path> =
         ProjectLevelVcsManager.getInstance(project).getRootsUnderVcs(PlasticVcs.getInstance(project)).map { it.toNioPath() }
@@ -44,6 +49,8 @@ class PlasticWorkspaceState(private val project: Project) : Disposable {
     fun refreshSelector(root: Path, changeset: Long? = infos[root]?.changeset) {
         val selector = try {
             PlasticCli.currentSelector(root)
+        } catch (e: ProcessCanceledException) {
+            throw e
         } catch (e: Exception) {
             LOG.info("Unable to read workspace info for $root", e)
             infos[root]?.selector
@@ -51,10 +58,38 @@ class PlasticWorkspaceState(private val project: Project) : Disposable {
         update(root, PlasticWorkspaceInfo(selector, changeset))
     }
 
-    fun updateChangeset(root: Path, changeset: Long?) {
+    /** Records a `cm status` of the whole workspace at [root], as read by the change provider. */
+    fun statusRead(root: Path, status: PlasticStatus) {
+        updateChangeset(root, status.changeset)
+        nestedByRoot[root] = PlasticNestedRootChanges.of(project, root, status)
+        statusReads.incrementAndGet()
+    }
+
+    /**
+     * How many times [statusRead] was called. A change list update that leaves this unchanged involved only other
+     * VCSs, so [nestedChanges] may be out of date and needs [PlasticNestedRootChanges.collect].
+     */
+    val statusReadCount: Long get() = statusReads.get()
+
+    /** Plastic changes in folders the IDE assigns to another VCS, across all workspaces. */
+    fun nestedChanges(): PlasticNestedRootChanges = PlasticNestedRootChanges.merge(roots().mapNotNull { nestedByRoot[it] })
+
+    /** Stores the result of [PlasticNestedRootChanges.collect]; returns whether anything changed. */
+    fun updateNestedChanges(changes: Map<Path, PlasticNestedRootChanges>): Boolean {
+        var changed = false
+        for ((root, value) in changes) {
+            if (nestedByRoot.put(root, value) != value) changed = true
+        }
+        return changed
+    }
+
+    private fun updateChangeset(root: Path, changeset: Long?) {
         val old = infos[root]
         if (old == null) {
             refreshSelector(root, changeset)
+        } else if (old.changeset == null) {
+            // The first changeset seen after the startup branch read; the branch is still current.
+            update(root, old.copy(changeset = changeset))
         } else if (old.changeset != changeset) {
             // A changed changeset usually means update/switch happened outside the IDE; re-read the branch too.
             refreshSelector(root, changeset)

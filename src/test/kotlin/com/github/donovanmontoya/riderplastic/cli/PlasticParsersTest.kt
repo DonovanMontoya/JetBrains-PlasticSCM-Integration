@@ -39,6 +39,22 @@ class PlasticParsersTest {
     }
 
     @Test
+    fun `status reads the loaded changeset even when it is behind head`() {
+        // Real output from a Unity Version Control cloud workspace whose header reads `cs:0 - head:206`.
+        val status = PlasticStatusParser.parse("STATUS${sep}0${sep}WasteManagement${sep}UnityEnvironmentalUniversity@cloud\n", root)
+        assertEquals(0L, status.changeset)
+        assertEquals(0L, PlasticOutputParsers.parseHeaderChangeset("/main@WasteManagement@UnityEnvironmentalUniversity@cloud (cs:0 - head:206)"))
+    }
+
+    @Test
+    fun `status keeps items reported in several states`() {
+        // Real output for a file that `cm status` lists as "Replaced / Checked-out (changed)".
+        val status = PlasticStatusParser.parse("CO+RP$sep${p("Core", "ShopManager.cs")}${sep}False${sep}NO_MERGES", root)
+        assertEquals(PlasticChangeType.CHANGED, status.entries.single().type)
+        assertEquals(p("Core", "ShopManager.cs"), status.entries.single().path.toString())
+    }
+
+    @Test
     fun `status resolves relative paths and prefers the most specific entry`() {
         val output = "CO${sep}a.cs${sep}False${sep}NO_MERGES\nMV${sep}b.cs${sep}a.cs${sep}False${sep}NO_MERGES"
         val status = PlasticStatusParser.parse(output, root)

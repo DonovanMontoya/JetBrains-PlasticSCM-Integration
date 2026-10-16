@@ -4,13 +4,17 @@ import com.github.donovanmontoya.riderplastic.branch.PlasticBranchWidgetFactory
 import com.github.donovanmontoya.riderplastic.toolwindow.PlasticToolWindowFactory
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
+import com.intellij.openapi.components.serviceIfCreated
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.vcs.ProjectLevelVcsManager
 import com.intellij.openapi.vcs.VcsMappingListener
 import com.intellij.openapi.wm.impl.status.widget.StatusBarWidgetsManager
 
-/** Keeps the branch widget, the Plastic SCM tool window and cached workspace info in sync with the project's VCS mappings. */
+/**
+ * Keeps the branch widget, the Plastic SCM tool window, cached workspace info and the `.plastic` metadata watch in sync
+ * with the project's VCS mappings.
+ */
 class PlasticStartupActivity : ProjectActivity {
 
     override suspend fun execute(project: Project) {
@@ -23,7 +27,11 @@ class PlasticStartupActivity : ProjectActivity {
         ApplicationManager.getApplication().executeOnPooledThread {
             if (project.isDisposed) return@executeOnPooledThread
             val state = PlasticWorkspaceState.getInstance(project)
-            state.roots().forEach { state.refreshSelector(it) }
+            val roots = state.roots()
+            // Projects without Plastic workspaces don't need the watcher's file listener.
+            val watcher = if (roots.isEmpty()) project.serviceIfCreated<PlasticMetadataWatcher>() else PlasticMetadataWatcher.getInstance(project)
+            watcher?.watch(roots)
+            roots.forEach { state.refreshSelector(it) }
             ApplicationManager.getApplication().invokeLater(
                 {
                     project.service<StatusBarWidgetsManager>().updateWidget(PlasticBranchWidgetFactory::class.java)

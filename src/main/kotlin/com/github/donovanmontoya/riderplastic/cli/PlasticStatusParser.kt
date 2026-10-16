@@ -42,6 +42,7 @@ data class PlasticStatus(
  * ```
  * STATUS|12|myrepo|localhost:8087
  * CH|C:\ws\src\Foo.cs|False|NO_MERGES
+ * CO+RP|C:\ws\src\Bar.cs|False|NO_MERGES
  * MV|C:\ws\old.cs|C:\ws\new.cs|False|NO_MERGES
  * PR|C:\ws\notes.txt|False|NO_MERGES
  * ```
@@ -81,7 +82,8 @@ object PlasticStatusParser {
                 continue
             }
 
-            val type = TYPE_MAP[fields[0]] ?: continue
+            // An item in several states at once joins their codes, as in `CO+RP` (checked out and replaced).
+            val type = fields[0].split('+').mapNotNull { TYPE_MAP[it] }.maxByOrNull { priority(it) } ?: continue
             if (fields.size < 2) continue
 
             // Trailing fields are <isDirectory> and <merge info>; everything between type and those are paths.

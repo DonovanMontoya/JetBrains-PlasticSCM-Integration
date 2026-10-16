@@ -3,7 +3,6 @@ package com.github.donovanmontoya.riderplastic.vcs
 import com.github.donovanmontoya.riderplastic.cli.PlasticChangeType
 import com.github.donovanmontoya.riderplastic.cli.PlasticCli
 import com.github.donovanmontoya.riderplastic.cli.PlasticStatusEntry
-import com.github.donovanmontoya.riderplastic.history.PlasticFileRevision
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vcs.FilePath
@@ -41,8 +40,8 @@ class PlasticChangeProvider(private val project: Project) : ChangeProvider {
             progress.checkCanceled()
             val root = rootFile.toNioPath()
             val status = PlasticCli.status(root)
-            PlasticWorkspaceState.getInstance(project).updateChangeset(root, status.changeset)
-            val baseRevision: VcsRevisionNumber = status.changeset?.let(::PlasticRevisionNumber) ?: VcsRevisionNumber.NULL
+            PlasticWorkspaceState.getInstance(project).statusRead(root, status)
+            val baseRevision = baseRevision(status.changeset)
 
             for (entry in status.entries) {
                 val path = filePath(entry.path, entry.isDirectory)
@@ -52,36 +51,36 @@ class PlasticChangeProvider(private val project: Project) : ChangeProvider {
                 when (entry.type) {
                     PlasticChangeType.PRIVATE -> builder.processUnversionedFile(path)
                     PlasticChangeType.IGNORED -> builder.processIgnoredFile(path)
-                    else -> if (!entry.isDirectory || entry.type == PlasticChangeType.MOVED) {
-                        builder.processChange(toChange(root, entry, path, baseRevision), PlasticVcs.KEY)
-                    }
+                    else -> toChange(project, root, entry, path, baseRevision)?.let { builder.processChange(it, PlasticVcs.KEY) }
                 }
             }
         }
     }
 
-    private fun toChange(root: Path, entry: PlasticStatusEntry, path: FilePath, base: VcsRevisionNumber): Change {
-        val current = CurrentContentRevision.create(path)
-        return when (entry.type) {
-            PlasticChangeType.ADDED -> Change(null, current)
-            PlasticChangeType.DELETED -> Change(PlasticContentRevision(root, path, base, baseSpec(path, base)), null)
-            PlasticChangeType.MOVED -> {
-                val before = filePath(entry.oldPath ?: entry.path, entry.isDirectory)
-                Change(PlasticContentRevision(root, before, base, baseSpec(before, base)), current)
-            }
-            else -> Change(PlasticContentRevision(root, path, base, baseSpec(path, base)), current)
-        }
-    }
-
-    /**
-     * `cm cat` spec for the base (loaded) revision: `<path>#cs:<loaded changeset>`. Pinning the changeset matters:
-     * everything that reads the "before" side (the diff viewer, gutter markers, AI commit message generation)
-     * gets exactly the content the local edits started from.
-     */
-    private fun baseSpec(path: FilePath, base: VcsRevisionNumber): String =
-        (base as? PlasticRevisionNumber)?.let { PlasticFileRevision.specAtChangeset(path, it.changeset) } ?: path.path
-
     override fun isModifiedDocumentTrackingRequired(): Boolean = false
 
-    private fun filePath(path: Path, isDirectory: Boolean): FilePath = VcsUtil.getFilePath(path.toFile(), isDirectory)
+    companion object {
+        fun baseRevision(changeset: Long?): VcsRevisionNumber = changeset?.let(::PlasticRevisionNumber) ?: VcsRevisionNumber.NULL
+
+        /**
+         * Converts a `cm status` entry at [path] into a change against the loaded revision [base]. Returns null for
+         * entries that are not changes: private and ignored items, and directories that were not moved.
+         */
+        fun toChange(project: Project, root: Path, entry: PlasticStatusEntry, path: FilePath, base: VcsRevisionNumber): Change? {
+            if (entry.type == PlasticChangeType.PRIVATE || entry.type == PlasticChangeType.IGNORED) return null
+            if (entry.isDirectory && entry.type != PlasticChangeType.MOVED) return null
+            val current = CurrentContentRevision.create(path)
+            return when (entry.type) {
+                PlasticChangeType.ADDED -> Change(null, current)
+                PlasticChangeType.DELETED -> Change(PlasticContentRevision(project, root, path, base), null)
+                PlasticChangeType.MOVED -> {
+                    val before = filePath(entry.oldPath ?: entry.path, entry.isDirectory)
+                    Change(PlasticContentRevision(project, root, before, base), current)
+                }
+                else -> Change(PlasticContentRevision(project, root, path, base), current)
+            }
+        }
+
+        fun filePath(path: Path, isDirectory: Boolean): FilePath = VcsUtil.getFilePath(path.toFile(), isDirectory)
+    }
 }
