@@ -38,9 +38,17 @@ class PlasticChangesTree(project: Project, parentDisposable: Disposable) : Chang
 
     /** Replaces the displayed items. Newly appearing changes are checked by default; unversioned files are not. */
     fun setItems(newChanges: List<Change>, newUnversioned: List<FilePath>) {
+        // Snapshot by type and identity-bearing path before rebuilding. ChangesTree may retain stale user
+        // objects while the model is being replaced; restoring those blindly can re-check a tracked Change when
+        // the same path has become an unversioned/private file after `cm undo`.
+        val includedChangePaths = includedSet.filterIsInstance<Change>()
+            .mapNotNull { ChangesUtil.getFilePath(it) }
+            .toSet()
+        val includedUnversionedPaths = includedSet.filterIsInstance<FilePath>().toSet()
         val previouslyShown = HashSet<Any>(changes)
-        val shown = HashSet<Any>(newChanges).apply { addAll(newUnversioned) }
-        val stillIncluded = includedSet.filter { it in shown }
+        val stillIncluded = newChanges.filter { change ->
+            ChangesUtil.getFilePath(change)?.let(includedChangePaths::contains) == true
+        } + newUnversioned.filter { it in includedUnversionedPaths }
         changes = newChanges
         unversioned = newUnversioned
         rebuildTree()
