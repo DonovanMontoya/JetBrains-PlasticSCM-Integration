@@ -66,14 +66,15 @@ jobs:
         run: |
           set -euo pipefail
           BASE_VERSION=$(sed -nE 's/^pluginVersion[[:space:]]*=[[:space:]]*([^[:space:]]+)[[:space:]]*$/\1/p' gradle.properties)
-          if [[ ! "$BASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+          if [[ ! "$BASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "pluginVersion must be a stable SemVer version (for example, 1.0.0)." >&2
             exit 1
           fi
+          IFS=. read -r MAJOR MINOR PATCH <<< "$BASE_VERSION"
           VERSION="$BASE_VERSION"
           PRERELEASE=false
           if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
-            VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))-dev.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
+            VERSION="$MAJOR.$MINOR.$((PATCH + 1))-dev.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}"
             PRERELEASE=true
           fi
           if [[ "$PUBLISH_STABLE_RELEASE" == true && "$GITHUB_REF" != refs/heads/main ]]; then
